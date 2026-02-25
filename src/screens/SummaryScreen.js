@@ -63,7 +63,6 @@ const SummaryScreen = ({ navigation }) => {
                                 navigation.navigate('Celebration', reportStats);
                             }
                         } catch (error) {
-                            console.error("Deletion failed:", error);
                             Alert.alert(t("error"), t("delete_error"));
                         }
                     }

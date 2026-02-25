@@ -50,7 +50,6 @@ const KeepListScreen = ({ navigation }) => {
                 const results = await Promise.all(fetchedAssetsPromises);
                 setAssets(results.filter(a => a !== null));
             } catch (e) {
-                console.error('[Keepr] KeepList fetch error:', e);
             } finally {
                 setLoading(false);
             }

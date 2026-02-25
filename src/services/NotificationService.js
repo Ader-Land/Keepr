@@ -107,7 +107,6 @@ export const registerForPushNotificationsAsync = async () => {
 
         return finalStatus;
     } catch (error) {
-        console.error('Notification permission error:', error);
         Alert.alert('Hata', 'Bildirim izni alınırken bir hata oluştu: ' + error.message);
         return null;
     }
@@ -116,10 +115,7 @@ export const registerForPushNotificationsAsync = async () => {
 // Test bildirimi - düzeltilmiş trigger formatı
 export const sendTestNotification = async (language) => {
     try {
-        console.log('Test notification başlatılıyor...');
-
         const { status } = await Notifications.getPermissionsAsync();
-        console.log('Bildirim izin durumu:', status);
 
         if (status !== 'granted') {
             const { status: newStatus } = await Notifications.requestPermissionsAsync();
@@ -129,8 +125,6 @@ export const sendTestNotification = async (language) => {
         const content = NOTIFICATION_CONTENT[language] || NOTIFICATION_CONTENT.en;
         const title = content.testTitle;
         const body = content.messages[Math.floor(Math.random() * content.messages.length)];
-
-        console.log('Bildirim zamanlanıyor:', { title, body });
 
         const notificationId = await Notifications.scheduleNotificationAsync({
             content: {
@@ -145,10 +139,8 @@ export const sendTestNotification = async (language) => {
             },
         });
 
-        console.log('Bildirim zamanlandı, ID:', notificationId);
         return notificationId;
     } catch (error) {
-        console.error('Test notification error:', error);
     }
 };
 
@@ -197,6 +189,5 @@ export const scheduleNotifications = async (enabled, frequency, language, hour, 
             }
         }
     } catch (error) {
-        console.error('Schedule notifications error:', error);
     }
 };

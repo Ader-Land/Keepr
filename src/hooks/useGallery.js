@@ -25,7 +25,6 @@ export const useGallery = () => {
             setPermissionResponse(mediaStatus);
             return mediaStatus;
         } catch (err) {
-            console.error('[Keepr] Permission error:', err);
             return { status: 'denied', granted: false };
         }
     }, []);
@@ -143,7 +142,6 @@ export const useGallery = () => {
             clearTimeout(securityTimeout);
             return { endCursor: currentAfter, hasNextPage };
         } catch (error) {
-            console.error('[Keepr] Fetch assets error:', error);
             if (error.message === 'TIMEOUT' && (selectedAlbums || []).length === 1) {
                 const albumId = selectedAlbums[0];
                 markAlbumAsFailed(albumId);

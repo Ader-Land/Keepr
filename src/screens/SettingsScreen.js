@@ -98,7 +98,6 @@ const SettingsScreen = ({ navigation }) => {
                     setSdCardAlbums(sd.sort(sorter));
                 }
             } catch (e) {
-                console.error('Error fetching albums:', e);
             } finally {
                 setLoadingAlbums(false);
             }
