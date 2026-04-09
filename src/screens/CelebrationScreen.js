@@ -11,17 +11,17 @@ import Animated, {
 } from 'react-native-reanimated';
 import { useTranslation } from '../hooks/useTranslation';
 import useSettingsStore from '../store/useSettingsStore';
-import { getColors } from '../theme/colors';
+import { getColors, isDarkTheme } from '../theme/colors';
 
 const { width } = Dimensions.get('window');
 
 const CelebrationScreen = ({ route, navigation }) => {
-    const { totalSavedSpace = 0, totalDeletedCount = 0 } = route.params || {};
+    const { totalSavedSpace = 0, totalDeletedCount = 0, totalKeptCount = 0 } = route.params || {};
     const { theme, updateLifetimeStats, awardBadge } = useSettingsStore();
     const { t, language } = useTranslation();
     const [newBadges, setNewBadges] = React.useState([]);
 
-    const isDark = theme === 'dark';
+    const isDark = isDarkTheme(theme);
     const colors = getColors(theme);
 
     const scale = useSharedValue(0);
@@ -36,7 +36,7 @@ const CelebrationScreen = ({ route, navigation }) => {
         updateLifetimeStats({
             savedSpace: totalSavedSpace,
             deletedCount: totalDeletedCount,
-            keptCount: 0, // Simplified for now
+            keptCount: totalKeptCount,
         });
 
         // Small delay for badge checks to ensure lifetime stats are updated
@@ -64,6 +64,7 @@ const CelebrationScreen = ({ route, navigation }) => {
             checkBadge('loyal_user', currentStats.streakDays >= 7);
             checkBadge('big_clean', totalDeletedCount > 0);
             if (totalDeletedCount >= 50) checkBadge('determined_sorter', true);
+            checkBadge('collector', currentStats.totalKeptCount >= 50);
 
             // Fun
             const hour = new Date().getHours();

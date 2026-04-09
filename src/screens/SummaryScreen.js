@@ -5,7 +5,7 @@ import * as MediaLibrary from 'expo-media-library';
 import { useTranslation } from '../hooks/useTranslation';
 import useMediaStore from '../store/useMediaStore';
 import useSettingsStore from '../store/useSettingsStore';
-import { getColors } from '../theme/colors';
+import { getColors, isDarkTheme } from '../theme/colors';
 
 const SummaryScreen = ({ navigation }) => {
     const { deleteQueue, resetSession, moveFromDeleteToKeep, stats } = useMediaStore();
@@ -13,7 +13,7 @@ const SummaryScreen = ({ navigation }) => {
     const { t, language } = useTranslation();
     const [selectedIds, setSelectedIds] = useState([]); // IDs to EXCLUDE from deletion (to be kept)
 
-    const isDark = theme === 'dark';
+    const isDark = isDarkTheme(theme);
     const colors = getColors(theme);
 
     const toggleSelect = (id) => {
@@ -58,6 +58,7 @@ const SummaryScreen = ({ navigation }) => {
                                 const reportStats = {
                                     totalSavedSpace: latestStats.savedSpace,
                                     totalDeletedCount: latestStats.deletedCount,
+                                    totalKeptCount: latestStats.keptCount,
                                 };
                                 resetSession();
                                 navigation.navigate('Celebration', reportStats);
@@ -136,7 +137,7 @@ const SummaryScreen = ({ navigation }) => {
 
             <View style={[styles.footer, { backgroundColor: colors.card, borderTopColor: colors.border }]}>
                 <TouchableOpacity
-                    style={[styles.keepButton, { backgroundColor: isDark ? '#333' : '#E0E0E0' }]}
+                    style={[styles.keepButton, { backgroundColor: colors.buttonBg }]}
                     onPress={() => navigation.goBack()}
                 >
                     <Text style={[styles.keepButtonText, { color: colors.text }]}>

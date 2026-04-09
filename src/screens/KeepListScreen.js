@@ -14,7 +14,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import * as MediaLibrary from 'expo-media-library';
 import { useTranslation } from '../hooks/useTranslation';
 import useSettingsStore from '../store/useSettingsStore';
-import { getColors } from '../theme/colors';
+import { getColors, isDarkTheme } from '../theme/colors';
 
 const { width } = Dimensions.get('window');
 const COLUMN_COUNT = 3;
@@ -26,7 +26,7 @@ const KeepListScreen = ({ navigation }) => {
     const [assets, setAssets] = useState([]);
     const [loading, setLoading] = useState(false);
 
-    const isDark = theme === 'dark';
+    const isDark = isDarkTheme(theme);
     const colors = getColors(theme);
 
     useEffect(() => {

@@ -17,7 +17,7 @@ import { useTranslation } from '../hooks/useTranslation';
 import { getLanguageLabel } from '../i18n/translations';
 import useSettingsStore from '../store/useSettingsStore';
 import { scheduleNotifications } from '../services/NotificationService';
-import { getColors } from '../theme/colors';
+import { getColors, THEME_LIST, isDarkTheme } from '../theme/colors';
 
 const SettingsScreen = ({ navigation }) => {
     const { t, language } = useTranslation();
@@ -52,6 +52,7 @@ const SettingsScreen = ({ navigation }) => {
     const [loadingAlbums, setLoadingAlbums] = useState(false);
     const [showTimePicker, setShowTimePicker] = useState(false);
     const [showLanguagePicker, setShowLanguagePicker] = useState(false);
+    const [showThemePicker, setShowThemePicker] = useState(false);
 
     useEffect(() => {
         const fetchAlbumsWithStorageCheck = async () => {
@@ -105,7 +106,7 @@ const SettingsScreen = ({ navigation }) => {
         fetchAlbumsWithStorageCheck();
     }, []);
 
-    const isDark = theme === 'dark';
+    const isDark = isDarkTheme(theme);
     const colors = getColors(theme);
 
     const sortOptions = [
@@ -195,9 +196,10 @@ const SettingsScreen = ({ navigation }) => {
                 {renderSectionHeader(t('appearance_language'))}
                 <View style={[styles.card, { backgroundColor: colors.card }]}>
                     {renderItem(
-                        t('dark_mode'),
-                        isDark,
-                        () => setTheme(isDark ? 'light' : 'dark')
+                        t('theme'),
+                        t(`theme_${theme}`),
+                        () => setShowThemePicker(true),
+                        'selector'
                     )}
                     {renderItem(
                         t('language'),
@@ -462,6 +464,61 @@ const SettingsScreen = ({ navigation }) => {
                 </View>
             </Modal>
 
+            {/* Theme Picker Modal */}
+            <Modal
+                visible={showThemePicker}
+                transparent
+                animationType="fade"
+                onRequestClose={() => setShowThemePicker(false)}
+            >
+                <View style={styles.modalOverlay}>
+                    <View style={[styles.modalContent, { backgroundColor: colors.card }]}>
+                        <Text style={[styles.modalTitle, { color: colors.text }]}>
+                            {t('theme')}
+                        </Text>
+
+                        {THEME_LIST.map((item) => (
+                            <TouchableOpacity
+                                key={item.id}
+                                style={[styles.modalItem, { borderBottomColor: colors.border }]}
+                                onPress={() => {
+                                    setTheme(item.id);
+                                    setShowThemePicker(false);
+                                }}
+                            >
+                                <View style={styles.themePreviewRow}>
+                                    <View style={[
+                                        styles.themePreviewCircle,
+                                        { backgroundColor: item.preview, borderColor: item.accent }
+                                    ]}>
+                                        <View style={[
+                                            styles.themePreviewDot,
+                                            { backgroundColor: item.accent }
+                                        ]} />
+                                    </View>
+                                    <Text style={[
+                                        styles.itemLabel,
+                                        { color: theme === item.id ? item.accent : colors.text }
+                                    ]}>
+                                        {t(`theme_${item.id}`)}
+                                    </Text>
+                                </View>
+                                {theme === item.id && (
+                                    <Text style={{ color: item.accent, fontWeight: 'bold', fontSize: 18 }}>✓</Text>
+                                )}
+                            </TouchableOpacity>
+                        ))}
+
+                        <TouchableOpacity
+                            onPress={() => setShowThemePicker(false)}
+                            style={[styles.modalDoneButton, { backgroundColor: colors.primary }]}
+                        >
+                            <Text style={styles.modalDoneText}>{t('done')}</Text>
+                        </TouchableOpacity>
+                    </View>
+                </View>
+            </Modal>
+
             {/* Time Picker Modal */}
             <Modal
                 visible={showTimePicker}
@@ -703,6 +760,24 @@ const styles = StyleSheet.create({
         color: '#fff',
         fontSize: 16,
         fontWeight: 'bold',
+    },
+    themePreviewRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+    },
+    themePreviewCircle: {
+        width: 36,
+        height: 36,
+        borderRadius: 18,
+        borderWidth: 2,
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginRight: 12,
+    },
+    themePreviewDot: {
+        width: 14,
+        height: 14,
+        borderRadius: 7,
     },
 });
 

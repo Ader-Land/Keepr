@@ -1,21 +1,16 @@
-import React, { memo } from 'react';
+import React from 'react';
 import { StyleSheet, View, Text } from 'react-native';
 import { useTranslation } from '../hooks/useTranslation';
 import useMediaStore from '../store/useMediaStore';
 import useSettingsStore from '../store/useSettingsStore';
+import { getColors } from '../theme/colors';
 
-const StatsDashboard = memo(() => {
-    const { stats } = useMediaStore();
+const StatsDashboard = () => {
     const { theme } = useSettingsStore();
+    const { stats } = useMediaStore();
     const { t, language } = useTranslation();
 
-    const isDark = theme === 'dark';
-
-    const colors = {
-        bg: isDark ? '#1E1E1E' : '#FFFFFF',
-        text: isDark ? '#FFFFFF' : '#121212',
-        label: isDark ? '#A0A0A0' : '#666666',
-    };
+    const colors = getColors(theme);
 
     const formatSize = (bytes) => {
         const val = parseFloat(bytes);
@@ -27,28 +22,28 @@ const StatsDashboard = memo(() => {
     };
 
     return (
-        <View style={[styles.container, { backgroundColor: colors.bg }]}>
+        <View style={[styles.container, { backgroundColor: colors.card }]}>
             <View style={styles.statBox}>
-                <Text style={[styles.statLabel, { color: colors.label }]}>
+                <Text style={[styles.statLabel, { color: colors.subText }]}>
                     {t('saved_space')}
                 </Text>
                 <Text style={[styles.statValue, { color: colors.text }]}>{formatSize(stats.savedSpace)}</Text>
             </View>
             <View style={styles.statBox}>
-                <Text style={[styles.statLabel, { color: colors.label }]}>
+                <Text style={[styles.statLabel, { color: colors.subText }]}>
                     {t('discarded')}
                 </Text>
                 <Text style={[styles.statValue, { color: colors.text }]}>{stats.deletedCount}</Text>
             </View>
             <View style={styles.statBox}>
-                <Text style={[styles.statLabel, { color: colors.label }]}>
+                <Text style={[styles.statLabel, { color: colors.subText }]}>
                     {t('kept')}
                 </Text>
                 <Text style={[styles.statValue, { color: colors.text }]}>{stats.keptCount}</Text>
             </View>
         </View>
     );
-});
+};
 
 const styles = StyleSheet.create({
     container: {

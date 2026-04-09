@@ -8,7 +8,35 @@ import useSettingsStore from '../store/useSettingsStore';
 import SwipeCard from '../components/SwipeCard';
 import StatsDashboard from '../components/StatsDashboard';
 import OnboardingModal from '../components/OnboardingModal';
-import { getColors } from '../theme/colors';
+import { getColors, isDarkTheme } from '../theme/colors';
+
+const GalleryProgressBar = ({ current, total, colors, t }) => {
+    if (total <= 0) return null;
+    const progress = current / total;
+    return (
+        <View style={deckStyles.galleryProgressContainer}>
+            <View style={deckStyles.galleryProgressRow}>
+                <Text style={[deckStyles.galleryProgressLabel, { color: colors.subText }]}>
+                    📸 {current} / {total} {t('reviewed')}
+                </Text>
+                <Text style={[deckStyles.galleryProgressPercent, { color: colors.primary }]}>
+                    %{Math.round(progress * 100)}
+                </Text>
+            </View>
+            <View style={[deckStyles.galleryBarBg, { backgroundColor: colors.progressBg }]}>
+                <View
+                    style={[
+                        deckStyles.galleryBarFill,
+                        {
+                            width: `${Math.max(progress * 100, 1)}%`,
+                            backgroundColor: progress >= 1 ? colors.secondary : colors.primary,
+                        },
+                    ]}
+                />
+            </View>
+        </View>
+    );
+};
 
 const DeckScreen = ({ navigation }) => {
     const { theme, onboardingCompleted } = useSettingsStore();
@@ -16,7 +44,7 @@ const DeckScreen = ({ navigation }) => {
     const { loading, permissionStatus, fetchAssets } = useGallery();
     const { assets, currentIndex, keepAsset, deleteAsset, deleteQueue, undoAction } = useMediaStore();
 
-    const isDark = theme === 'dark';
+    const isDark = isDarkTheme(theme);
     const colors = getColors(theme);
 
     const swipeLabels = useMemo(() => ({
@@ -79,7 +107,7 @@ const DeckScreen = ({ navigation }) => {
                     {t('sd_card_warning')}
                 </Text>
                 <TouchableOpacity
-                    style={[styles.button, { backgroundColor: isDark ? '#333' : '#E0E0E0' }]}
+                    style={[styles.button, { backgroundColor: colors.buttonBg }]}
                     onPress={() => {
                         const { setSelectedAlbums } = useSettingsStore.getState();
                         setSelectedAlbums([]);
@@ -122,7 +150,7 @@ const DeckScreen = ({ navigation }) => {
                         style={styles.reviewButton}
                         onPress={() => navigation.navigate('Summary')}
                     >
-                        <View style={[styles.binBadge, { backgroundColor: isDark ? '#333' : '#E0E0E0' }]}>
+                        <View style={[styles.binBadge, { backgroundColor: colors.buttonBg }]}>
                             <Text style={[styles.reviewButtonText, { color: colors.text }]}>
                                 {t('bin')} ({(deleteQueue || []).length})
                             </Text>
@@ -130,6 +158,13 @@ const DeckScreen = ({ navigation }) => {
                     </TouchableOpacity>
                 </View>
             </View>
+
+            <GalleryProgressBar
+                current={currentIndex}
+                total={(assets || []).length}
+                colors={colors}
+                t={t}
+            />
 
             <View style={styles.deckContainer}>
                 {visibleAssets.length > 0 ? (
@@ -159,7 +194,7 @@ const DeckScreen = ({ navigation }) => {
                             </TouchableOpacity>
                         )}
                         <TouchableOpacity
-                            style={[styles.button, { marginTop: 10, backgroundColor: isDark ? '#333' : '#E0E0E0' }]}
+                            style={[styles.button, { marginTop: 10, backgroundColor: colors.buttonBg }]}
                             onPress={() => fetchAssets()}
                         >
                             <Text style={[styles.buttonText, { color: colors.text }]}>
@@ -249,6 +284,36 @@ const styles = StyleSheet.create({
         color: '#fff',
         fontSize: 16,
         fontWeight: 'bold',
+    },
+});
+
+const deckStyles = StyleSheet.create({
+    galleryProgressContainer: {
+        paddingHorizontal: 20,
+        paddingVertical: 8,
+    },
+    galleryProgressRow: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: 4,
+    },
+    galleryProgressLabel: {
+        fontSize: 12,
+        fontWeight: '600',
+    },
+    galleryProgressPercent: {
+        fontSize: 13,
+        fontWeight: 'bold',
+    },
+    galleryBarBg: {
+        height: 6,
+        borderRadius: 3,
+        overflow: 'hidden',
+    },
+    galleryBarFill: {
+        height: '100%',
+        borderRadius: 3,
     },
 });
 
