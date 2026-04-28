@@ -99,6 +99,7 @@ const SettingsScreen = ({ navigation }) => {
                     setSdCardAlbums(sd.sort(sorter));
                 }
             } catch (e) {
+                Alert.alert(t('error'), t('album_load_error'));
             } finally {
                 setLoadingAlbums(false);
             }
@@ -128,18 +129,30 @@ const SettingsScreen = ({ navigation }) => {
 
     const handleNotificationToggle = async (enabled) => {
         setNotificationsEnabled(enabled);
-        await scheduleNotifications(enabled, notificationFrequency, language, notificationHour, notificationMinute, notificationWeekdays);
+        try {
+            await scheduleNotifications(enabled, notificationFrequency, language, notificationHour, notificationMinute, notificationWeekdays);
+        } catch (e) {
+            Alert.alert(t('error'), t('notification_schedule_error'));
+        }
     };
 
     const handleFrequencyChange = async (freq) => {
         setNotificationFrequency(freq);
-        await scheduleNotifications(notificationsEnabled, freq, language, notificationHour, notificationMinute, notificationWeekdays);
+        try {
+            await scheduleNotifications(notificationsEnabled, freq, language, notificationHour, notificationMinute, notificationWeekdays);
+        } catch (e) {
+            Alert.alert(t('error'), t('notification_schedule_error'));
+        }
     };
 
     const handleTimeChange = async (hour, minute) => {
         setNotificationHour(hour);
         setNotificationMinute(minute);
-        await scheduleNotifications(notificationsEnabled, notificationFrequency, language, hour, minute, notificationWeekdays);
+        try {
+            await scheduleNotifications(notificationsEnabled, notificationFrequency, language, hour, minute, notificationWeekdays);
+        } catch (e) {
+            Alert.alert(t('error'), t('notification_schedule_error'));
+        }
     };
 
     const handleWeekdayToggle = async (weekday) => {
@@ -149,7 +162,11 @@ const SettingsScreen = ({ navigation }) => {
             : [...notificationWeekdays, weekday].sort();
 
         if ((newWeekdays || []).length > 0) {
-            await scheduleNotifications(notificationsEnabled, notificationFrequency, language, notificationHour, notificationMinute, newWeekdays);
+            try {
+                await scheduleNotifications(notificationsEnabled, notificationFrequency, language, notificationHour, notificationMinute, newWeekdays);
+            } catch (e) {
+                Alert.alert(t('error'), t('notification_schedule_error'));
+            }
         }
     };
 

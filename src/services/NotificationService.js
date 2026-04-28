@@ -1,5 +1,5 @@
 import * as Notifications from 'expo-notifications';
-import { Platform, Alert } from 'react-native';
+import { Platform } from 'react-native';
 
 Notifications.setNotificationHandler({
     handleNotification: async () => ({
@@ -107,8 +107,7 @@ export const registerForPushNotificationsAsync = async () => {
 
         return finalStatus;
     } catch (error) {
-        Alert.alert('Hata', 'Bildirim izni alınırken bir hata oluştu: ' + error.message);
-        return null;
+        throw error;
     }
 };
 
@@ -141,6 +140,7 @@ export const sendTestNotification = async (language) => {
 
         return notificationId;
     } catch (error) {
+        throw error;
     }
 };
 
@@ -189,5 +189,6 @@ export const scheduleNotifications = async (enabled, frequency, language, hour, 
             }
         }
     } catch (error) {
+        throw error;
     }
 };

@@ -145,10 +145,9 @@ export const useGallery = () => {
             if (error.message === 'TIMEOUT' && (selectedAlbums || []).length === 1) {
                 const albumId = selectedAlbums[0];
                 markAlbumAsFailed(albumId);
-                Alert.alert(
-                    t('access_error'),
-                    t('album_slow_error')
-                );
+                Alert.alert(t('access_error'), t('album_slow_error'));
+            } else {
+                Alert.alert(t('error'), t('gallery_load_error'));
             }
         } finally {
             clearTimeout(securityTimeout);

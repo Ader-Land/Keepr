@@ -29,15 +29,19 @@ export default function App() {
 
     useEffect(() => {
         const setupNotifications = async () => {
-            await registerForPushNotificationsAsync();
-            await scheduleNotifications(
-                notificationsEnabled,
-                notificationFrequency,
-                language,
-                notificationHour,
-                notificationMinute,
-                notificationWeekdays
-            );
+            try {
+                await registerForPushNotificationsAsync();
+                await scheduleNotifications(
+                    notificationsEnabled,
+                    notificationFrequency,
+                    language,
+                    notificationHour,
+                    notificationMinute,
+                    notificationWeekdays
+                );
+            } catch (e) {
+                console.warn('Notification setup failed:', e.message);
+            }
         };
         setupNotifications();
     }, [notificationsEnabled, notificationFrequency, language, notificationHour, notificationMinute, notificationWeekdays]);
