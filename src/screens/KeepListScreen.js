@@ -7,56 +7,84 @@ import {
     FlatList,
     Image,
     Dimensions,
-    ActivityIndicator,
     Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as MediaLibrary from 'expo-media-library';
 import { useTranslation } from '../hooks/useTranslation';
+import { createLimiter } from '../utils/async';
 import useSettingsStore from '../store/useSettingsStore';
-import { getColors, isDarkTheme } from '../theme/colors';
+import { getColors } from '../theme/colors';
 
 const { width } = Dimensions.get('window');
 const COLUMN_COUNT = 3;
 const ITEM_SIZE = width / COLUMN_COUNT;
 
+// Look-ups run a few at a time, and only for thumbnails that are actually on screen.
+const thumbLimiter = createLimiter(4);
+
+const KeepThumb = React.memo(function KeepThumb({ assetId, canPrune, onRemove, removeLabel }) {
+    const removeFromKeepList = useSettingsStore((state) => state.removeFromKeepList);
+    const [uri, setUri] = useState(null);
+
+    useEffect(() => {
+        let cancelled = false;
+
+        thumbLimiter(async () => {
+            try {
+                const info = await MediaLibrary.getAssetInfoAsync(assetId);
+                if (cancelled) return;
+                if (info) {
+                    setUri(info.uri);
+                } else if (canPrune) {
+                    // The asset really is gone (deleted outside the app), so forget it.
+                    removeFromKeepList(assetId);
+                }
+            } catch {
+                // A failed look-up may be temporary (busy storage); keep the entry and retry later.
+            }
+        });
+
+        return () => {
+            cancelled = true;
+        };
+    }, [assetId, canPrune, removeFromKeepList]);
+
+    return (
+        <View style={styles.itemContainer}>
+            {uri ? <Image source={{ uri }} style={styles.image} /> : <View style={[styles.image, styles.placeholder]} />}
+            <TouchableOpacity
+                style={styles.removeBadge}
+                onPress={() => onRemove(assetId)}
+                accessibilityRole="button"
+                accessibilityLabel={removeLabel}
+            >
+                <Text style={styles.removeBadgeText} importantForAccessibility="no">✕</Text>
+            </TouchableOpacity>
+        </View>
+    );
+});
+
 const KeepListScreen = ({ navigation }) => {
     const { theme, keepList, removeFromKeepList, clearKeepList } = useSettingsStore();
-    const { t, language } = useTranslation();
-    const [assets, setAssets] = useState([]);
-    const [loading, setLoading] = useState(false);
+    const { t } = useTranslation();
+    // Entries are only pruned when the library is fully readable; with limited access
+    // a missing asset may just be outside the user's selection.
+    const [canPrune, setCanPrune] = useState(false);
 
-    const isDark = isDarkTheme(theme);
     const colors = getColors(theme);
 
     useEffect(() => {
-        const fetchKeepListAssets = async () => {
-            if ((keepList || []).length === 0) {
-                setAssets([]);
-                return;
-            }
-            setLoading(true);
-            try {
-                const fetchedAssetsPromises = (keepList || []).map(async (id) => {
-                    try {
-                        const asset = await MediaLibrary.getAssetInfoAsync(id);
-                        return asset || null;
-                    } catch (e) {
-                        removeFromKeepList(id);
-                        return null;
-                    }
-                });
-
-                const results = await Promise.all(fetchedAssetsPromises);
-                setAssets(results.filter(a => a !== null));
-            } catch (e) {
-            } finally {
-                setLoading(false);
-            }
+        let cancelled = false;
+        MediaLibrary.getPermissionsAsync()
+            .then((res) => {
+                if (!cancelled) setCanPrune(res.status === 'granted' && res.accessPrivileges !== 'limited');
+            })
+            .catch(() => { /* stay on the safe side: never prune */ });
+        return () => {
+            cancelled = true;
         };
-
-        fetchKeepListAssets();
-    }, [keepList]);
+    }, []);
 
     const handleRemove = (assetId) => {
         Alert.alert(
@@ -89,21 +117,23 @@ const KeepListScreen = ({ navigation }) => {
     };
 
     const renderItem = ({ item }) => (
-        <View style={styles.itemContainer}>
-            <Image source={{ uri: item.uri }} style={styles.image} />
-            <TouchableOpacity
-                style={styles.removeBadge}
-                onPress={() => handleRemove(item.id)}
-            >
-                <Text style={styles.removeBadgeText}>✕</Text>
-            </TouchableOpacity>
-        </View>
+        <KeepThumb
+            assetId={item}
+            canPrune={canPrune}
+            onRemove={handleRemove}
+            removeLabel={t('remove')}
+        />
     );
 
     return (
         <SafeAreaView style={[styles.container, { backgroundColor: colors.bg }]} edges={['top', 'left', 'right', 'bottom']}>
             <View style={[styles.header, { borderBottomColor: colors.border }]}>
-                <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
+                <TouchableOpacity
+                    onPress={() => navigation.goBack()}
+                    style={styles.backButton}
+                    accessibilityRole="button"
+                    accessibilityLabel={t('back')}
+                >
                     <Text style={[styles.backButtonText, { color: colors.text }]}>←</Text>
                 </TouchableOpacity>
                 <Text style={[styles.headerTitle, { color: colors.text }]}>
@@ -118,11 +148,7 @@ const KeepListScreen = ({ navigation }) => {
                 )}
             </View>
 
-            {loading ? (
-                <View style={styles.centered}>
-                    <ActivityIndicator size="large" color={colors.primary} />
-                </View>
-            ) : (keepList || []).length === 0 ? (
+            {(keepList || []).length === 0 ? (
                 <View style={styles.centered}>
                     <Text style={[styles.emptyText, { color: colors.subText }]}>
                         {t('keep_list_empty')}
@@ -133,9 +159,13 @@ const KeepListScreen = ({ navigation }) => {
                 </View>
             ) : (
                 <FlatList
-                    data={assets}
+                    data={keepList}
                     renderItem={renderItem}
-                    keyExtractor={(item) => item.id}
+                    keyExtractor={(item) => item}
+                    initialNumToRender={18}
+                    maxToRenderPerBatch={12}
+                    windowSize={7}
+                    removeClippedSubviews
                     numColumns={COLUMN_COUNT}
                     contentContainerStyle={styles.listContent}
                 />
@@ -170,6 +200,7 @@ const styles = StyleSheet.create({
         height: '100%',
         borderRadius: 8,
     },
+    placeholder: { backgroundColor: 'rgba(128,128,128,0.25)' },
     removeBadge: {
         position: 'absolute',
         top: 5,

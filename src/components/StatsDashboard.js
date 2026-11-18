@@ -8,7 +8,7 @@ import { getColors } from '../theme/colors';
 const StatsDashboard = () => {
     const { theme } = useSettingsStore();
     const { stats } = useMediaStore();
-    const { t, language } = useTranslation();
+    const { t } = useTranslation();
 
     const colors = getColors(theme);
 

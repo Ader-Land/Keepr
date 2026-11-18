@@ -10,9 +10,10 @@ import CelebrationScreen from './src/screens/CelebrationScreen';
 import KeepListScreen from './src/screens/KeepListScreen';
 import BadgesScreen from './src/screens/BadgesScreen';
 import { StatusBar } from 'expo-status-bar';
-import { registerForPushNotificationsAsync, scheduleNotifications } from './src/services/NotificationService';
+import { AppState, Appearance } from 'react-native';
+import { scheduleNotifications } from './src/services/NotificationService';
 import useSettingsStore from './src/store/useSettingsStore';
-import { getColors } from './src/theme/colors';
+import { getColors, isDarkTheme } from './src/theme/colors';
 
 const Stack = createStackNavigator();
 
@@ -20,6 +21,7 @@ export default function App() {
     const {
         theme,
         notificationsEnabled,
+        onboardingCompleted,
         notificationFrequency,
         language,
         notificationHour,
@@ -27,24 +29,39 @@ export default function App() {
         notificationWeekdays
     } = useSettingsStore();
 
+    // Reminders are only (re)scheduled for users who opted in and finished onboarding.
+    // The permission itself is requested when the user switches notifications on in
+    // Settings, never at app start. Because reminders are scheduled as a rolling window
+    // of one-off notifications, the window is also refreshed whenever the app returns
+    // to the foreground.
     useEffect(() => {
-        const setupNotifications = async () => {
-            try {
-                await registerForPushNotificationsAsync();
-                await scheduleNotifications(
-                    notificationsEnabled,
-                    notificationFrequency,
-                    language,
-                    notificationHour,
-                    notificationMinute,
-                    notificationWeekdays
-                );
-            } catch (e) {
-                console.warn('Notification setup failed:', e.message);
-            }
+        const schedule = () => {
+            scheduleNotifications(
+                notificationsEnabled && onboardingCompleted,
+                notificationFrequency,
+                language,
+                notificationHour,
+                notificationMinute,
+                notificationWeekdays
+            ).catch((e) => console.warn('Notification setup failed:', e.message));
         };
-        setupNotifications();
-    }, [notificationsEnabled, notificationFrequency, language, notificationHour, notificationMinute, notificationWeekdays]);
+
+        schedule();
+        const subscription = AppState.addEventListener('change', (state) => {
+            if (state === 'active') schedule();
+        });
+        return () => subscription.remove();
+    }, [notificationsEnabled, onboardingCompleted, notificationFrequency, language, notificationHour, notificationMinute, notificationWeekdays]);
+
+    // Keep the store's copy of the OS color scheme current (used by the 'system' theme).
+    useEffect(() => {
+        const { setSystemScheme } = useSettingsStore.getState();
+        setSystemScheme(Appearance.getColorScheme() || 'light');
+        const subscription = Appearance.addChangeListener(({ colorScheme }) => {
+            useSettingsStore.getState().setSystemScheme(colorScheme || 'light');
+        });
+        return () => subscription.remove();
+    }, []);
 
     const colors = getColors(theme);
 
@@ -52,7 +69,7 @@ export default function App() {
         <SafeAreaProvider>
             <GestureHandlerRootView style={{ flex: 1 }}>
                 <NavigationContainer>
-                    <StatusBar style={theme === 'dark' ? 'light' : 'dark'} />
+                    <StatusBar style={isDarkTheme(theme) ? 'light' : 'dark'} />
                     <Stack.Navigator
                         initialRouteName="Deck"
                         screenOptions={{

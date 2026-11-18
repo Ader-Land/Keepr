@@ -4,7 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTranslation } from '../hooks/useTranslation';
 import useSettingsStore from '../store/useSettingsStore';
 import useMediaStore from '../store/useMediaStore';
-import { getColors, isDarkTheme } from '../theme/colors';
+import { getColors } from '../theme/colors';
 
 const MB = 1024 * 1024;
 const GB = 1024 * MB;
@@ -78,8 +78,7 @@ const ProgressBar = ({ progress, colors }) => (
 const BadgesScreen = ({ navigation }) => {
     const { theme, earnedBadges, lifetimeStats } = useSettingsStore();
     const { stats: sessionStats } = useMediaStore();
-    const { t, language } = useTranslation();
-    const isDark = isDarkTheme(theme);
+    const { t } = useTranslation();
     const colors = getColors(theme);
 
     const renderBadge = ({ item }) => {
@@ -87,7 +86,11 @@ const BadgesScreen = ({ navigation }) => {
         const progressInfo = getBadgeProgress(item, lifetimeStats, sessionStats);
 
         return (
-            <View style={[styles.badgeCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+            <View
+                style={[styles.badgeCard, { backgroundColor: colors.card, borderColor: colors.border }]}
+                accessible
+                accessibilityLabel={`${t(`badge_${item.id}_name`)}. ${t(`badge_${item.id}_desc`)}. ${isEarned ? t('a11y_badge_earned') : t('a11y_badge_locked')}`}
+            >
                 <View style={[styles.iconContainer, !isEarned && { opacity: 0.2, backgroundColor: colors.locked }]}>
                     <Text style={styles.icon}>{item.icon}</Text>
                 </View>
@@ -120,10 +123,15 @@ const BadgesScreen = ({ navigation }) => {
     return (
         <SafeAreaView style={[styles.container, { backgroundColor: colors.bg }]} edges={['top', 'left', 'right', 'bottom']}>
             <View style={[styles.header, { backgroundColor: colors.card, borderBottomColor: colors.border }]}>
-                <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
+                <TouchableOpacity
+                    onPress={() => navigation.goBack()}
+                    style={styles.backButton}
+                    accessibilityRole="button"
+                    accessibilityLabel={t('a11y_back')}
+                >
                     <Text style={[styles.backText, { color: colors.text }]}>←</Text>
                 </TouchableOpacity>
-                <Text style={[styles.title, { color: colors.text }]}>{t('achievements')}</Text>
+                <Text style={[styles.title, { color: colors.text }]} accessibilityRole="header">{t('achievements')}</Text>
             </View>
 
             <ScrollView contentContainerStyle={styles.scrollContent}>

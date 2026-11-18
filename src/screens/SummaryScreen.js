@@ -3,17 +3,18 @@ import { StyleSheet, View, Text, FlatList, Image, TouchableOpacity, Alert } from
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as MediaLibrary from 'expo-media-library';
 import { useTranslation } from '../hooks/useTranslation';
+import { ensureAssetInfo } from '../hooks/useGallery';
 import useMediaStore from '../store/useMediaStore';
 import useSettingsStore from '../store/useSettingsStore';
-import { getColors, isDarkTheme } from '../theme/colors';
+import { getColors } from '../theme/colors';
 
 const SummaryScreen = ({ navigation }) => {
-    const { deleteQueue, resetSession, moveFromDeleteToKeep, stats } = useMediaStore();
+    const { deleteQueue, resetSession, moveFromDeleteToKeep, purgeDeleted } = useMediaStore();
     const { theme } = useSettingsStore();
-    const { t, language } = useTranslation();
+    const { t } = useTranslation();
     const [selectedIds, setSelectedIds] = useState([]); // IDs to EXCLUDE from deletion (to be kept)
+    const [busy, setBusy] = useState(false);
 
-    const isDark = isDarkTheme(theme);
     const colors = getColors(theme);
 
     const toggleSelect = (id) => {
@@ -22,13 +23,76 @@ const SummaryScreen = ({ navigation }) => {
         );
     };
 
-    const handleEmptyTrash = async () => {
+    // Keeps the selected items: they are saved to the persistent keep list so they are
+    // not offered again in later sessions.
+    const keepSelected = () => {
+        useSettingsStore.getState().addManyToKeepList(selectedIds);
+        moveFromDeleteToKeep(selectedIds);
+    };
+
+    // Asks the media library which of the given assets are really gone. Items whose
+    // lookup fails for another reason are treated as still existing (the safe option).
+    const findDeletedIds = async (ids) => {
+        const gone = [];
+        for (const id of ids) {
+            try {
+                const info = await MediaLibrary.getAssetInfoAsync(id);
+                if (!info) gone.push(id);
+            } catch {
+                // Unknown state: keep the item in the bin instead of dropping it.
+            }
+        }
+        return gone;
+    };
+
+    const performDeletion = async (itemsToDelete) => {
+        const idsToDelete = itemsToDelete.map(a => a.id);
+        setBusy(true);
+
+        try {
+            // Make sure file sizes are known so the freed space is reported correctly.
+            await ensureAssetInfo(itemsToDelete);
+
+            // Delete first: stores are only changed once the system confirmed it.
+            const success = await MediaLibrary.deleteAssetsAsync(idsToDelete);
+            if (!success) {
+                // The user declined the system dialog, nothing was deleted.
+                return;
+            }
+
+            if (selectedIds.length > 0) keepSelected();
+
+            // Read the stats after the kept items were moved out of the bin.
+            const latestStats = useMediaStore.getState().stats;
+            const reportStats = {
+                totalSavedSpace: latestStats.savedSpace,
+                totalDeletedCount: latestStats.deletedCount,
+                totalKeptCount: latestStats.keptCount,
+                sessionId: String(Date.now()),
+            };
+            resetSession();
+            navigation.navigate('Celebration', reportStats);
+        } catch {
+            // A failure can happen half way through: drop what is really gone from the
+            // bin and let the user retry with the rest.
+            const gone = await findDeletedIds(idsToDelete);
+            if (gone.length > 0) purgeDeleted(gone);
+            setSelectedIds(prev => prev.filter(id => !gone.includes(id)));
+            Alert.alert(t("error"), t(gone.length > 0 ? "delete_partial_error" : "delete_error"));
+        } finally {
+            setBusy(false);
+        }
+    };
+
+    const handleEmptyTrash = () => {
+        if (busy) return;
+
         const itemsToKeep = deleteQueue.filter(a => selectedIds.includes(a.id));
         const itemsToDelete = deleteQueue.filter(a => !selectedIds.includes(a.id));
 
         if (itemsToDelete.length === 0) {
             if (itemsToKeep.length > 0) {
-                moveFromDeleteToKeep(selectedIds);
+                keepSelected();
                 navigation.navigate('Deck');
             }
             return;
@@ -42,31 +106,7 @@ const SummaryScreen = ({ navigation }) => {
                 {
                     text: t("delete"),
                     style: "destructive",
-                    onPress: async () => {
-                        try {
-                            if (itemsToKeep.length > 0) {
-                                moveFromDeleteToKeep(selectedIds);
-                            }
-
-                            const assetIdsToDelete = itemsToDelete.map(a => a.id);
-                            const success = await MediaLibrary.deleteAssetsAsync(assetIdsToDelete);
-
-                            if (success) {
-                                // Get the LATEST stats from store after moveFromDeleteToKeep updates it
-                                const latestStats = useMediaStore.getState().stats;
-
-                                const reportStats = {
-                                    totalSavedSpace: latestStats.savedSpace,
-                                    totalDeletedCount: latestStats.deletedCount,
-                                    totalKeptCount: latestStats.keptCount,
-                                };
-                                resetSession();
-                                navigation.navigate('Celebration', reportStats);
-                            }
-                        } catch (error) {
-                            Alert.alert(t("error"), t("delete_error"));
-                        }
-                    }
+                    onPress: () => performDeletion(itemsToDelete),
                 }
             ]
         );
@@ -79,6 +119,9 @@ const SummaryScreen = ({ navigation }) => {
                 style={styles.thumbnailContainer}
                 onPress={() => toggleSelect(item.id)}
                 activeOpacity={0.8}
+                accessibilityRole="button"
+                accessibilityLabel={`${item.filename || ''} ${isSelected ? t('keep') : t('delete')}`.trim()}
+                accessibilityState={{ selected: isSelected }}
             >
                 <Image
                     source={{ uri: item.uri }}
@@ -115,7 +158,12 @@ const SummaryScreen = ({ navigation }) => {
         <SafeAreaView style={[styles.container, { backgroundColor: colors.bg }]} edges={['top', 'left', 'right', 'bottom']}>
             <View style={[styles.header, { backgroundColor: colors.card, borderBottomColor: colors.border }]}>
                 <View style={styles.headerTop}>
-                    <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
+                    <TouchableOpacity
+                        onPress={() => navigation.goBack()}
+                        style={styles.backButton}
+                        accessibilityRole="button"
+                        accessibilityLabel={t('back')}
+                    >
                         <Text style={[styles.backText, { color: colors.text }]}>←</Text>
                     </TouchableOpacity>
                     <Text style={[styles.title, { color: colors.text }]}>
@@ -150,7 +198,7 @@ const SummaryScreen = ({ navigation }) => {
                         deleteCount === 0 && selectedIds.length === 0 && styles.disabledButton
                     ]}
                     onPress={handleEmptyTrash}
-                    disabled={deleteCount === 0 && selectedIds.length === 0}
+                    disabled={busy || (deleteCount === 0 && selectedIds.length === 0)}
                 >
                     <Text style={styles.deleteButtonText}>
                         {deleteCount > 0

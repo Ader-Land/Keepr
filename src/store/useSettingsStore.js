@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Localization from 'expo-localization';
+import { Appearance } from 'react-native';
 
 const DEFAULT_LANG = Localization.getLocales()[0]?.languageCode || 'en';
 const SUPPORTED_LANGS = ['tr', 'en', 'es', 'de', 'fr', 'pt'];
@@ -10,21 +11,25 @@ const initialLang = SUPPORTED_LANGS.includes(DEFAULT_LANG) ? DEFAULT_LANG : 'en'
 const useSettingsStore = create(
     persist(
         (set, get) => ({
-            theme: 'dark',
+            theme: 'system',
+            // Mirror of the OS color scheme, kept in sync from App.js so that screens
+            // subscribed to this store re-render when the system theme changes.
+            systemScheme: Appearance.getColorScheme() || 'light',
             language: initialLang,
             mediaTypes: ['photo', 'video'],
             selectedAlbums: [],
             sortBy: 'date-desc',
             vibrationEnabled: true,
-            notificationsEnabled: true,
+            notificationsEnabled: false, // opt-in: the permission is only requested when the user enables this
             notificationFrequency: 'daily',
             notificationHour: 19, // 0-23
             notificationMinute: 0, // 0-59
-            notificationWeekdays: [1], // 1=Sunday, 2=Monday, ..., 7=Saturday (ISO weekday format)
+            notificationWeekdays: [1], // expo-notifications weekday numbers: 1=Sunday, 2=Monday, ..., 7=Saturday
             keepList: [],
             failedAlbums: [],
             earnedBadges: [],
             onboardingCompleted: false,
+            lastRecordedSessionId: null, // guards against counting one cleanup session twice
             lifetimeStats: {
                 totalSavedSpace: 0,
                 totalDeletedCount: 0,
@@ -37,6 +42,9 @@ const useSettingsStore = create(
             addToKeepList: (assetId) => set((state) => ({
                 keepList: [...new Set([...(state.keepList || []), assetId])]
             })),
+            addManyToKeepList: (assetIds) => set((state) => ({
+                keepList: [...new Set([...(state.keepList || []), ...(assetIds || [])])]
+            })),
             removeFromKeepList: (assetId) => set((state) => ({
                 keepList: (state.keepList || []).filter(id => id !== assetId)
             })),
@@ -48,6 +56,7 @@ const useSettingsStore = create(
             clearFailedAlbums: () => set({ failedAlbums: [] }),
 
             setTheme: (theme) => set({ theme }),
+            setSystemScheme: (systemScheme) => set({ systemScheme }),
             setLanguage: (language) => set({ language }),
             setMediaTypes: (types) => set({ mediaTypes: types }),
             setSelectedAlbums: (albums) => set({ selectedAlbums: albums }),
@@ -60,7 +69,9 @@ const useSettingsStore = create(
             setNotificationWeekdays: (weekdays) => set({ notificationWeekdays: weekdays }),
             setOnboardingCompleted: (completed) => set({ onboardingCompleted: completed }),
 
-            updateLifetimeStats: (sessionStats) => set((state) => {
+            updateLifetimeStats: (sessionStats, sessionId = null) => set((state) => {
+                if (sessionId && state.lastRecordedSessionId === sessionId) return state;
+
                 const today = new Date().toDateString();
                 const lastDate = state.lifetimeStats?.lastSessionDate;
 
@@ -76,6 +87,7 @@ const useSettingsStore = create(
                 }
 
                 return {
+                    lastRecordedSessionId: sessionId || state.lastRecordedSessionId,
                     lifetimeStats: {
                         ...state.lifetimeStats,
                         totalSavedSpace: (state.lifetimeStats?.totalSavedSpace || 0) + (sessionStats.savedSpace || 0),

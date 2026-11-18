@@ -1,13 +1,12 @@
 import React, { useState } from 'react';
-import { StyleSheet, View, Text, Modal, TouchableOpacity, Dimensions } from 'react-native';
+import { StyleSheet, View, Text, Modal, TouchableOpacity, useWindowDimensions } from 'react-native';
 import Animated, { FadeIn, FadeOut, SlideInRight, SlideOutLeft } from 'react-native-reanimated';
 import { useTranslation } from '../hooks/useTranslation';
 import useSettingsStore from '../store/useSettingsStore';
 
-const { width } = Dimensions.get('window');
-
 const OnboardingModal = ({ visible, onClose }) => {
     const { t } = useTranslation();
+    const { width } = useWindowDimensions();
     const setOnboardingCompleted = useSettingsStore((state) => state.setOnboardingCompleted);
     const [step, setStep] = useState(1);
 
@@ -59,7 +58,7 @@ const OnboardingModal = ({ visible, onClose }) => {
                 <Animated.View
                     entering={FadeIn.duration(400)}
                     exiting={FadeOut.duration(400)}
-                    style={styles.container}
+                    style={[styles.container, { width: width * 0.85 }]}
                 >
                     <View style={[styles.content]}>
                         <Animated.View
@@ -89,6 +88,8 @@ const OnboardingModal = ({ visible, onClose }) => {
                             <TouchableOpacity
                                 style={[styles.button, { backgroundColor: currentStep.color }]}
                                 onPress={handleNext}
+                                accessibilityRole="button"
+                                accessibilityLabel={step === steps.length ? t('ob_start') : t('ob_next')}
                             >
                                 <Text style={styles.buttonText}>
                                     {step === steps.length ? t('ob_start') : t('ob_next')}
@@ -110,7 +111,6 @@ const styles = StyleSheet.create({
         alignItems: 'center',
     },
     container: {
-        width: width * 0.85,
         backgroundColor: '#FFF',
         borderRadius: 30,
         padding: 30,

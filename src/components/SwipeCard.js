@@ -1,27 +1,30 @@
-import React, { memo, useEffect } from 'react';
-import { StyleSheet, View, Dimensions, Image, Text } from 'react-native';
+import React, { memo, useEffect, useState } from 'react';
+import { StyleSheet, View, useWindowDimensions, Image, Text } from 'react-native';
 import { GestureDetector, Gesture } from 'react-native-gesture-handler';
 import Animated, {
     useAnimatedStyle,
     useSharedValue,
     withSpring,
     interpolate,
-    Extrapolate,
-    runOnJS,
+    Extrapolation,
 } from 'react-native-reanimated';
+import { scheduleOnRN } from 'react-native-worklets';
 import { useVideoPlayer, VideoView } from 'expo-video';
 import * as Haptics from 'expo-haptics';
 import useSettingsStore from '../store/useSettingsStore';
+import { useTranslation } from '../hooks/useTranslation';
 
-const { width, height } = Dimensions.get('window');
-const SWIPE_THRESHOLD = width * 0.3;
-
-const SwipeCard = memo(({ asset, onSwipeLeft, onSwipeRight, style, isActive, labels }) => {
-    const { vibrationEnabled } = useSettingsStore();
+const SwipeCard = memo(function SwipeCard({ asset, onSwipeLeft, onSwipeRight, style, isActive, labels }) {
+    const { width, height } = useWindowDimensions();
+    const swipeThreshold = width * 0.3;
+    const { t } = useTranslation();
+    const vibrationEnabled = useSettingsStore((state) => state.vibrationEnabled);
     const translateX = useSharedValue(0);
     const translateY = useSharedValue(0);
     const scale = useSharedValue(1);
-    const context = useSharedValue({ x: 0, y: 0, scale: 1 });
+    const panStartX = useSharedValue(0);
+    const panStartY = useSharedValue(0);
+    const pinchStartScale = useSharedValue(1);
 
     const triggerHaptic = () => {
         if (vibrationEnabled) {
@@ -29,15 +32,15 @@ const SwipeCard = memo(({ asset, onSwipeLeft, onSwipeRight, style, isActive, lab
         }
     };
 
-    const player = useVideoPlayer(isActive && asset.mediaType === 'video' ? (asset.localUri || asset.uri) : null, (player) => {
+    const player = useVideoPlayer(isActive && asset.mediaType === 'video' ? (asset.localUri || asset.uri) : null, (p) => {
         if (isActive && asset.mediaType === 'video') {
-            player.loop = true;
-            player.muted = true;
-            player.play();
+            p.loop = true;
+            p.muted = true;
+            p.play();
         }
     });
 
-    const [imageError, setImageError] = React.useState(false);
+    const [imageError, setImageError] = useState(false);
 
     useEffect(() => {
         if (player) {
@@ -52,22 +55,23 @@ const SwipeCard = memo(({ asset, onSwipeLeft, onSwipeRight, style, isActive, lab
     const panGesture = Gesture.Pan()
         .enabled(isActive)
         .onStart(() => {
-            context.value = { x: translateX.value, y: translateY.value, scale: scale.value };
+            panStartX.value = translateX.value;
+            panStartY.value = translateY.value;
         })
         .onUpdate((event) => {
-            translateX.value = context.value.x + event.translationX;
-            translateY.value = context.value.y + event.translationY;
+            translateX.value = panStartX.value + event.translationX;
+            translateY.value = panStartY.value + event.translationY;
         })
         .onEnd((event) => {
-            if (Math.abs(event.translationX) > SWIPE_THRESHOLD) {
-                runOnJS(triggerHaptic)();
+            if (Math.abs(event.translationX) > swipeThreshold) {
+                scheduleOnRN(triggerHaptic);
 
                 if (event.translationX > 0) {
                     translateX.value = withSpring(width * 1.5, { velocity: event.velocityX });
-                    runOnJS(onSwipeRight)(asset);
+                    scheduleOnRN(onSwipeRight, asset);
                 } else {
                     translateX.value = withSpring(-width * 1.5, { velocity: event.velocityX });
-                    runOnJS(onSwipeLeft)(asset);
+                    scheduleOnRN(onSwipeLeft, asset);
                 }
             } else {
                 translateX.value = withSpring(0);
@@ -78,8 +82,11 @@ const SwipeCard = memo(({ asset, onSwipeLeft, onSwipeRight, style, isActive, lab
 
     const pinchGesture = Gesture.Pinch()
         .enabled(isActive)
+        .onStart(() => {
+            pinchStartScale.value = scale.value;
+        })
         .onUpdate((event) => {
-            scale.value = context.value.scale * event.scale;
+            scale.value = pinchStartScale.value * event.scale;
         })
         .onEnd(() => {
             if (scale.value < 1) {
@@ -94,14 +101,7 @@ const SwipeCard = memo(({ asset, onSwipeLeft, onSwipeRight, style, isActive, lab
             translateX.value,
             [-width / 2, 0, width / 2],
             [-10, 0, 10],
-            Extrapolate.CLAMP
-        );
-
-        const swipeScale = interpolate(
-            translateX.value,
-            [-width / 2, 0, width / 2],
-            [1, 1, 1],
-            Extrapolate.CLAMP
+            Extrapolation.CLAMP
         );
 
         return {
@@ -109,23 +109,48 @@ const SwipeCard = memo(({ asset, onSwipeLeft, onSwipeRight, style, isActive, lab
                 { translateX: translateX.value },
                 { translateY: translateY.value },
                 { rotate: `${rotate}deg` },
-                { scale: scale.value * swipeScale }
+                { scale: scale.value },
             ],
         };
     });
 
     const keepOpacity = useAnimatedStyle(() => ({
-        opacity: interpolate(translateX.value, [0, SWIPE_THRESHOLD], [0, 1], Extrapolate.CLAMP),
+        opacity: interpolate(translateX.value, [0, swipeThreshold], [0, 1], Extrapolation.CLAMP),
     }));
 
     const deleteOpacity = useAnimatedStyle(() => ({
-        opacity: interpolate(translateX.value, [-SWIPE_THRESHOLD, 0], [1, 0], Extrapolate.CLAMP),
+        opacity: interpolate(translateX.value, [-swipeThreshold, 0], [1, 0], Extrapolation.CLAMP),
     }));
+
+    // Screen-reader users cannot swipe, so expose keep/delete as accessibility actions.
+    const handleAccessibilityAction = (event) => {
+        const action = event.nativeEvent.actionName;
+        if (action === 'keep') {
+            triggerHaptic();
+            onSwipeRight(asset);
+        } else if (action === 'delete') {
+            triggerHaptic();
+            onSwipeLeft(asset);
+        }
+    };
+
+    const mediaLabel = asset.mediaType === 'video' ? t('a11y_video') : t('a11y_photo');
 
     return (
         <View style={[styles.container, style]} pointerEvents={isActive ? 'auto' : 'none'}>
             <GestureDetector gesture={combinedGesture}>
-                <Animated.View style={[styles.card, animatedStyle]}>
+                <Animated.View
+                    style={[styles.card, { width: width * 0.9, height: height * 0.7 }, animatedStyle]}
+                    accessible={isActive}
+                    accessibilityRole="adjustable"
+                    accessibilityLabel={`${mediaLabel}${asset.filename ? `: ${asset.filename}` : ''}`}
+                    accessibilityHint={t('a11y_card_hint')}
+                    accessibilityActions={[
+                        { name: 'keep', label: labels?.keep || t('keep') },
+                        { name: 'delete', label: labels?.delete || t('delete') },
+                    ]}
+                    onAccessibilityAction={handleAccessibilityAction}
+                >
                     {asset.mediaType === 'video' ? (
                         isActive ? (
                             <VideoView
@@ -139,8 +164,8 @@ const SwipeCard = memo(({ asset, onSwipeLeft, onSwipeRight, style, isActive, lab
                     ) : (
                         imageError ? (
                             <View style={[styles.media, styles.errorContainer]}>
-                                <Text style={styles.errorText}>⚠️ Görsel Yüklenemedi</Text>
-                                <Text style={styles.errorSubText}>{asset.filename || 'Medya Hatası'}</Text>
+                                <Text style={styles.errorText}>⚠️ {t('image_load_error')}</Text>
+                                <Text style={styles.errorSubText}>{asset.filename || t('media_error')}</Text>
                             </View>
                         ) : (
                             <Image
@@ -153,11 +178,11 @@ const SwipeCard = memo(({ asset, onSwipeLeft, onSwipeRight, style, isActive, lab
                     )}
 
                     <Animated.View style={[styles.overlay, styles.keepOverlay, keepOpacity]}>
-                        <Text style={styles.overlayText}>{labels?.keep || 'KEEP'}</Text>
+                        <Text style={styles.overlayText}>{labels?.keep || t('keep')}</Text>
                     </Animated.View>
 
                     <Animated.View style={[styles.overlay, styles.deleteOverlay, deleteOpacity]}>
-                        <Text style={styles.overlayText}>{labels?.delete || 'DELETE'}</Text>
+                        <Text style={styles.overlayText}>{labels?.delete || t('delete')}</Text>
                     </Animated.View>
                 </Animated.View>
             </GestureDetector>
@@ -172,8 +197,6 @@ const styles = StyleSheet.create({
         alignItems: 'center',
     },
     card: {
-        width: width * 0.9,
-        height: height * 0.7,
         borderRadius: 20,
         backgroundColor: '#000',
         elevation: 5,

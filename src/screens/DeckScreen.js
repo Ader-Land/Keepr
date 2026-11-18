@@ -1,14 +1,14 @@
-import React, { useCallback, useMemo } from 'react';
-import { StyleSheet, View, Text, ActivityIndicator, TouchableOpacity } from 'react-native';
+import React, { useCallback, useEffect, useMemo } from 'react';
+import { StyleSheet, View, Text, ActivityIndicator, TouchableOpacity, Linking } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useGallery } from '../hooks/useGallery';
+import { useGallery, ensureAssetInfo } from '../hooks/useGallery';
 import { useTranslation } from '../hooks/useTranslation';
 import useMediaStore from '../store/useMediaStore';
 import useSettingsStore from '../store/useSettingsStore';
 import SwipeCard from '../components/SwipeCard';
 import StatsDashboard from '../components/StatsDashboard';
 import OnboardingModal from '../components/OnboardingModal';
-import { getColors, isDarkTheme } from '../theme/colors';
+import { getColors } from '../theme/colors';
 
 const GalleryProgressBar = ({ current, total, colors, t }) => {
     if (total <= 0) return null;
@@ -40,11 +40,10 @@ const GalleryProgressBar = ({ current, total, colors, t }) => {
 
 const DeckScreen = ({ navigation }) => {
     const { theme, onboardingCompleted } = useSettingsStore();
-    const { t, language } = useTranslation();
-    const { loading, permissionStatus, fetchAssets } = useGallery();
+    const { t } = useTranslation();
+    const { loading, hasPermission, canAskAgain, fetchAssets } = useGallery();
     const { assets, currentIndex, keepAsset, deleteAsset, deleteQueue, undoAction } = useMediaStore();
 
-    const isDark = isDarkTheme(theme);
     const colors = getColors(theme);
 
     const swipeLabels = useMemo(() => ({
@@ -54,6 +53,8 @@ const DeckScreen = ({ navigation }) => {
 
     const handleSwipeLeft = useCallback((asset) => {
         deleteAsset(asset);
+        // The freed-space statistic needs the file size, make sure it is known.
+        ensureAssetInfo([asset]);
     }, [deleteAsset]);
 
     const handleSwipeRight = useCallback((asset) => {
@@ -69,7 +70,7 @@ const DeckScreen = ({ navigation }) => {
         const { keepQueue } = useMediaStore.getState();
         const { removeFromKeepList } = useSettingsStore.getState();
 
-        // Eğer son işlem bir "Keep" ise persistent listeden de çıkar
+        // If the last action was a "keep", also remove it from the persistent keep list.
         const isLastActionKeep = keepQueue.length > 0 && keepQueue[keepQueue.length - 1].id === lastAsset.id;
 
         if (isLastActionKeep) {
@@ -83,13 +84,34 @@ const DeckScreen = ({ navigation }) => {
         return (assets || []).slice(currentIndex, currentIndex + 3).reverse();
     }, [assets, currentIndex]);
 
-    if (permissionStatus !== 'granted') {
+    // Size and local uri are loaded lazily, so prepare the cards that are about to be shown.
+    useEffect(() => {
+        ensureAssetInfo(visibleAssets);
+    }, [visibleAssets]);
+
+    if (hasPermission === null) {
+        return (
+            <View style={[styles.centered, { backgroundColor: colors.bg }]}>
+                <ActivityIndicator size="large" color={colors.primary} />
+            </View>
+        );
+    }
+
+    if (!hasPermission) {
         return (
             <View style={[styles.centered, { backgroundColor: colors.bg }]}>
                 <Text style={[styles.text, { color: colors.text }]}>
                     {t('permission_required')}
                 </Text>
-                <TouchableOpacity style={styles.button} onPress={fetchAssets}>
+                <TouchableOpacity
+                    style={styles.button}
+                    accessibilityRole="button"
+                    onPress={() => {
+                        // Android stops showing the system dialog after repeated denials.
+                        if (canAskAgain) fetchAssets();
+                        else Linking.openSettings();
+                    }}
+                >
                     <Text style={styles.buttonText}>{t('grant_permission')}</Text>
                 </TouchableOpacity>
             </View>
@@ -108,6 +130,7 @@ const DeckScreen = ({ navigation }) => {
                 </Text>
                 <TouchableOpacity
                     style={[styles.button, { backgroundColor: colors.buttonBg }]}
+                    accessibilityRole="button"
                     onPress={() => {
                         const { setSelectedAlbums } = useSettingsStore.getState();
                         setSelectedAlbums([]);
@@ -126,13 +149,20 @@ const DeckScreen = ({ navigation }) => {
         <SafeAreaView style={[styles.container, { backgroundColor: colors.bg }]} edges={['top', 'left', 'right', 'bottom']}>
             <View style={[styles.header, { borderBottomColor: colors.border, backgroundColor: colors.bg }]}>
                 <View style={styles.headerLeft}>
-                    <TouchableOpacity onPress={() => navigation.navigate('Settings')} style={styles.iconButton}>
+                    <TouchableOpacity
+                        onPress={() => navigation.navigate('Settings')}
+                        style={styles.iconButton}
+                        accessibilityRole="button"
+                        accessibilityLabel={t('settings')}
+                    >
                         <Text style={styles.iconText}>⚙️</Text>
                     </TouchableOpacity>
 
-                    {/* [YENİ] Geri Al Butonu */}
                     <TouchableOpacity
                         onPress={handleUndo}
+                        accessibilityRole="button"
+                        accessibilityLabel={t('undo')}
+                        accessibilityState={{ disabled: currentIndex === 0 }}
                         style={[styles.iconButton, currentIndex === 0 && { opacity: 0.3 }]}
                         disabled={currentIndex === 0}
                     >
@@ -140,14 +170,21 @@ const DeckScreen = ({ navigation }) => {
                     </TouchableOpacity>
                 </View>
 
-                <Text style={styles.headerTitle}>Keepr</Text>
+                <Text style={styles.headerTitle} accessibilityRole="header">{t('app_name')}</Text>
 
                 <View style={styles.headerRight}>
-                    <TouchableOpacity onPress={() => navigation.navigate('Badges')} style={styles.iconButton}>
+                    <TouchableOpacity
+                        onPress={() => navigation.navigate('Badges')}
+                        style={styles.iconButton}
+                        accessibilityRole="button"
+                        accessibilityLabel={t('badges')}
+                    >
                         <Text style={styles.iconText}>🏆</Text>
                     </TouchableOpacity>
                     <TouchableOpacity
                         style={styles.reviewButton}
+                        accessibilityRole="button"
+                        accessibilityLabel={`${t('bin')} (${(deleteQueue || []).length})`}
                         onPress={() => navigation.navigate('Summary')}
                     >
                         <View style={[styles.binBadge, { backgroundColor: colors.buttonBg }]}>
@@ -209,7 +246,7 @@ const DeckScreen = ({ navigation }) => {
 
             <OnboardingModal
                 visible={!onboardingCompleted}
-                onClose={() => { }} // Store inside will handle closing via persistence
+                onClose={() => { /* the modal stores its own completion state */ }}
             />
         </SafeAreaView>
     );

@@ -10,14 +10,20 @@ import {
     ActivityIndicator,
     Modal,
     Alert,
+    Linking,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as MediaLibrary from 'expo-media-library';
+import Constants from 'expo-constants';
 import { useTranslation } from '../hooks/useTranslation';
 import { getLanguageLabel } from '../i18n/translations';
 import useSettingsStore from '../store/useSettingsStore';
-import { scheduleNotifications } from '../services/NotificationService';
-import { getColors, THEME_LIST, isDarkTheme } from '../theme/colors';
+import { scheduleNotifications, registerForPushNotificationsAsync } from '../services/NotificationService';
+import { getColors, THEME_LIST } from '../theme/colors';
+
+const SOURCE_URL = 'https://github.com/Ader-Land/Keepr';
+const PRIVACY_URL = 'https://github.com/Ader-Land/Keepr/blob/main/PRIVACY.md';
+const APP_VERSION = Constants.expoConfig?.version || '1.0.0';
 
 const SettingsScreen = ({ navigation }) => {
     const { t, language } = useTranslation();
@@ -84,8 +90,9 @@ const SettingsScreen = ({ navigation }) => {
                             } else {
                                 local.push(album);
                             }
-                        } catch (e) {
-                            local.push(album); // Hata durumunda güvenli tarafta kal
+                        } catch {
+                            // If the album cannot be probed, treat it as local (safe default).
+                            local.push(album);
                         }
                     }
 
@@ -98,16 +105,17 @@ const SettingsScreen = ({ navigation }) => {
                     setLocalAlbums(local.sort(sorter));
                     setSdCardAlbums(sd.sort(sorter));
                 }
-            } catch (e) {
+            } catch {
                 Alert.alert(t('error'), t('album_load_error'));
             } finally {
                 setLoadingAlbums(false);
             }
         };
         fetchAlbumsWithStorageCheck();
+        // Albums are loaded once on mount; re-running on language change (new `t`) would refetch needlessly.
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
-    const isDark = isDarkTheme(theme);
     const colors = getColors(theme);
 
     const sortOptions = [
@@ -128,10 +136,25 @@ const SettingsScreen = ({ navigation }) => {
     ];
 
     const handleNotificationToggle = async (enabled) => {
+        if (enabled) {
+            // Ask for the OS permission first; only enable when it was granted.
+            try {
+                const status = await registerForPushNotificationsAsync();
+                if (status !== 'granted') {
+                    setNotificationsEnabled(false);
+                    Alert.alert(t('error'), t('notification_permission_denied'));
+                    return;
+                }
+            } catch {
+                setNotificationsEnabled(false);
+                Alert.alert(t('error'), t('notification_permission_error'));
+                return;
+            }
+        }
         setNotificationsEnabled(enabled);
         try {
             await scheduleNotifications(enabled, notificationFrequency, language, notificationHour, notificationMinute, notificationWeekdays);
-        } catch (e) {
+        } catch {
             Alert.alert(t('error'), t('notification_schedule_error'));
         }
     };
@@ -140,7 +163,7 @@ const SettingsScreen = ({ navigation }) => {
         setNotificationFrequency(freq);
         try {
             await scheduleNotifications(notificationsEnabled, freq, language, notificationHour, notificationMinute, notificationWeekdays);
-        } catch (e) {
+        } catch {
             Alert.alert(t('error'), t('notification_schedule_error'));
         }
     };
@@ -150,7 +173,7 @@ const SettingsScreen = ({ navigation }) => {
         setNotificationMinute(minute);
         try {
             await scheduleNotifications(notificationsEnabled, notificationFrequency, language, hour, minute, notificationWeekdays);
-        } catch (e) {
+        } catch {
             Alert.alert(t('error'), t('notification_schedule_error'));
         }
     };
@@ -164,12 +187,20 @@ const SettingsScreen = ({ navigation }) => {
         if ((newWeekdays || []).length > 0) {
             try {
                 await scheduleNotifications(notificationsEnabled, notificationFrequency, language, notificationHour, notificationMinute, newWeekdays);
-            } catch (e) {
+            } catch {
                 Alert.alert(t('error'), t('notification_schedule_error'));
             }
         }
     };
 
+
+    const openLink = async (url) => {
+        try {
+            await Linking.openURL(url);
+        } catch {
+            Alert.alert(t('error'), t('link_open_error'));
+        }
+    };
 
     const formatTime = (hour, minute) => {
         return `${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`;
@@ -186,11 +217,17 @@ const SettingsScreen = ({ navigation }) => {
                 <Switch
                     value={value}
                     onValueChange={onValueChange}
+                    accessibilityLabel={label}
                     trackColor={{ false: '#767577', true: colors.primary }}
                     thumbColor={Platform.OS === 'ios' ? undefined : '#f4f3f4'}
                 />
             ) : (
-                <TouchableOpacity onPress={onValueChange} style={styles.selector}>
+                <TouchableOpacity
+                    onPress={onValueChange}
+                    style={styles.selector}
+                    accessibilityRole="button"
+                    accessibilityLabel={`${label}: ${value}`}
+                >
                     <Text style={[styles.selectorText, { color: colors.primary }]}>{value}</Text>
                 </TouchableOpacity>
             )}
@@ -200,10 +237,15 @@ const SettingsScreen = ({ navigation }) => {
     return (
         <SafeAreaView style={[styles.container, { backgroundColor: colors.bg }]} edges={['top', 'left', 'right', 'bottom']}>
             <View style={[styles.header, { borderBottomColor: colors.border }]}>
-                <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
+                <TouchableOpacity
+                    onPress={() => navigation.goBack()}
+                    style={styles.backButton}
+                    accessibilityRole="button"
+                    accessibilityLabel={t('a11y_back')}
+                >
                     <Text style={[styles.backButtonText, { color: colors.text }]}>←</Text>
                 </TouchableOpacity>
-                <Text style={[styles.headerTitle, { color: colors.text }]}>
+                <Text style={[styles.headerTitle, { color: colors.text }]} accessibilityRole="header">
                     {t('settings')}
                 </Text>
                 <View style={{ width: 40 }} />
@@ -255,6 +297,9 @@ const SettingsScreen = ({ navigation }) => {
                             style={[styles.item, { borderBottomColor: colors.border }]}
                             onPress={() => handleFrequencyChange(freq)}
                             disabled={!notificationsEnabled}
+                            accessibilityRole="radio"
+                            accessibilityLabel={t(freq)}
+                            accessibilityState={{ selected: notificationFrequency === freq, disabled: !notificationsEnabled }}
                         >
                             <Text style={[styles.itemLabel, { color: notificationsEnabled ? colors.text : colors.subText }]}>
                                 {t(freq)}
@@ -273,6 +318,9 @@ const SettingsScreen = ({ navigation }) => {
                         style={[styles.item, { borderBottomColor: colors.border }]}
                         onPress={() => setShowTimePicker(true)}
                         disabled={!notificationsEnabled}
+                        accessibilityRole="button"
+                        accessibilityLabel={`${t('notification_time')}: ${formatTime(notificationHour, notificationMinute)}`}
+                        accessibilityState={{ disabled: !notificationsEnabled }}
                     >
                         <Text style={[styles.itemLabel, { color: notificationsEnabled ? colors.text : colors.subText }]}>
                             {t('notification_time')}
@@ -293,6 +341,9 @@ const SettingsScreen = ({ navigation }) => {
                                     style={[styles.item, { borderBottomColor: colors.border }]}
                                     onPress={() => handleWeekdayToggle(day.id)}
                                     disabled={!notificationsEnabled}
+                                    accessibilityRole="checkbox"
+                                    accessibilityLabel={t(day.key)}
+                                    accessibilityState={{ checked: notificationWeekdays.includes(day.id), disabled: !notificationsEnabled }}
                                 >
                                     <Text style={[styles.itemLabel, { color: notificationsEnabled ? colors.text : colors.subText }]}>
                                         {t(day.key)}
@@ -317,6 +368,9 @@ const SettingsScreen = ({ navigation }) => {
                             key={opt.id}
                             style={[styles.item, { borderBottomColor: colors.border }]}
                             onPress={() => setSortBy(opt.id)}
+                            accessibilityRole="radio"
+                            accessibilityLabel={t(opt.id)}
+                            accessibilityState={{ selected: sortBy === opt.id }}
                         >
                             <Text style={[styles.itemLabel, { color: colors.text }]}>{t(opt.id)}</Text>
                             <View style={[
@@ -356,6 +410,9 @@ const SettingsScreen = ({ navigation }) => {
                                     key={album.id}
                                     style={[styles.albumItem, { borderBottomColor: colors.border }, isFailed && { opacity: 0.5 }]}
                                     onPress={() => !isFailed && toggleAlbum(album.id)}
+                                    accessibilityRole="checkbox"
+                                    accessibilityLabel={album.title}
+                                    accessibilityState={{ checked: (selectedAlbums || []).includes(album.id), disabled: isFailed }}
                                 >
                                     <View style={styles.albumInfo}>
                                         <Text style={[styles.itemLabel, { color: isFailed ? colors.primary : colors.text }]}>
@@ -380,7 +437,7 @@ const SettingsScreen = ({ navigation }) => {
                     )}
                 </View>
 
-                {renderSectionHeader(t('filter_albums'))}
+                {renderSectionHeader(t('sd_card_albums'))}
                 <View style={[styles.card, { backgroundColor: colors.card, paddingVertical: 10 }]}>
                     <View style={styles.warningBox}>
                         <Text style={styles.warningText}>
@@ -402,6 +459,9 @@ const SettingsScreen = ({ navigation }) => {
                                     key={album.id}
                                     style={[styles.albumItem, { borderBottomColor: colors.border }, isFailed && { opacity: 0.5 }]}
                                     onPress={() => !isFailed && toggleAlbum(album.id)}
+                                    accessibilityRole="checkbox"
+                                    accessibilityLabel={album.title}
+                                    accessibilityState={{ checked: (selectedAlbums || []).includes(album.id), disabled: isFailed }}
                                 >
                                     <View style={styles.albumInfo}>
                                         <Text style={[styles.itemLabel, { color: isFailed ? colors.primary : colors.text }]}>
@@ -426,12 +486,31 @@ const SettingsScreen = ({ navigation }) => {
                     )}
 
                     {(failedAlbums || []).length > 0 && (
-                        <TouchableOpacity onPress={clearFailedAlbums} style={styles.clearFailedButton}>
+                        <TouchableOpacity
+                            onPress={clearFailedAlbums}
+                            style={styles.clearFailedButton}
+                            accessibilityRole="button"
+                            accessibilityLabel={t('clear_failed_logs')}
+                        >
                             <Text style={{ color: colors.primary, fontSize: 12, fontWeight: 'bold' }}>
                                 🔄 {t('clear_failed_logs')}
                             </Text>
                         </TouchableOpacity>
                     )}
+                </View>
+
+                {renderSectionHeader(t('about'))}
+                <View style={[styles.card, { backgroundColor: colors.card }]}>
+                    <View style={[styles.item, { borderBottomColor: colors.border }]}>
+                        <Text style={[styles.itemLabel, { color: colors.text }]}>{t('version')}</Text>
+                        <Text style={[styles.selectorText, { color: colors.subText }]}>{APP_VERSION}</Text>
+                    </View>
+                    <View style={[styles.item, { borderBottomColor: colors.border }]}>
+                        <Text style={[styles.itemLabel, { color: colors.text }]}>{t('license')}</Text>
+                        <Text style={[styles.selectorText, { color: colors.subText }]}>GPL-3.0</Text>
+                    </View>
+                    {renderItem(t('source_code'), 'GitHub', () => openLink(SOURCE_URL), 'selector')}
+                    {renderItem(t('privacy_policy'), '>', () => openLink(PRIVACY_URL), 'selector')}
                 </View>
 
                 <View style={{ height: 40 }} />
@@ -459,6 +538,9 @@ const SettingsScreen = ({ navigation }) => {
                                         setLanguage(langCode);
                                         setShowLanguagePicker(false);
                                     }}
+                                    accessibilityRole="radio"
+                                    accessibilityLabel={getLanguageLabel(langCode)}
+                                    accessibilityState={{ selected: language === langCode }}
                                 >
                                     <Text style={[
                                         styles.itemLabel,
@@ -474,6 +556,8 @@ const SettingsScreen = ({ navigation }) => {
                         <TouchableOpacity
                             onPress={() => setShowLanguagePicker(false)}
                             style={[styles.modalDoneButton, { backgroundColor: colors.primary }]}
+                            accessibilityRole="button"
+                            accessibilityLabel={t('done')}
                         >
                             <Text style={styles.modalDoneText}>{t('done')}</Text>
                         </TouchableOpacity>
@@ -494,6 +578,7 @@ const SettingsScreen = ({ navigation }) => {
                             {t('theme')}
                         </Text>
 
+                        <ScrollView style={{ maxHeight: 400 }}>
                         {THEME_LIST.map((item) => (
                             <TouchableOpacity
                                 key={item.id}
@@ -502,6 +587,9 @@ const SettingsScreen = ({ navigation }) => {
                                     setTheme(item.id);
                                     setShowThemePicker(false);
                                 }}
+                                accessibilityRole="radio"
+                                accessibilityLabel={t(`theme_${item.id}`)}
+                                accessibilityState={{ selected: theme === item.id }}
                             >
                                 <View style={styles.themePreviewRow}>
                                     <View style={[
@@ -525,10 +613,13 @@ const SettingsScreen = ({ navigation }) => {
                                 )}
                             </TouchableOpacity>
                         ))}
+                        </ScrollView>
 
                         <TouchableOpacity
                             onPress={() => setShowThemePicker(false)}
                             style={[styles.modalDoneButton, { backgroundColor: colors.primary }]}
+                            accessibilityRole="button"
+                            accessibilityLabel={t('done')}
                         >
                             <Text style={styles.modalDoneText}>{t('done')}</Text>
                         </TouchableOpacity>
@@ -559,6 +650,9 @@ const SettingsScreen = ({ navigation }) => {
                                             notificationHour === hour && { backgroundColor: colors.primary }
                                         ]}
                                         onPress={() => handleTimeChange(hour, notificationMinute)}
+                                        accessibilityRole="button"
+                                        accessibilityLabel={`${t('hour')} ${hour.toString().padStart(2, '0')}`}
+                                        accessibilityState={{ selected: notificationHour === hour }}
                                     >
                                         <Text style={[
                                             styles.timeText,
@@ -581,6 +675,9 @@ const SettingsScreen = ({ navigation }) => {
                                             notificationMinute === minute && { backgroundColor: colors.primary }
                                         ]}
                                         onPress={() => handleTimeChange(notificationHour, minute)}
+                                        accessibilityRole="button"
+                                        accessibilityLabel={`${t('minute')} ${minute.toString().padStart(2, '0')}`}
+                                        accessibilityState={{ selected: notificationMinute === minute }}
                                     >
                                         <Text style={[
                                             styles.timeText,
@@ -596,6 +693,8 @@ const SettingsScreen = ({ navigation }) => {
                         <TouchableOpacity
                             style={[styles.modalButton, { backgroundColor: colors.primary }]}
                             onPress={() => setShowTimePicker(false)}
+                            accessibilityRole="button"
+                            accessibilityLabel={t('done')}
                         >
                             <Text style={styles.modalButtonText}>{t('done')}</Text>
                         </TouchableOpacity>

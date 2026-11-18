@@ -11,17 +11,16 @@ import Animated, {
 } from 'react-native-reanimated';
 import { useTranslation } from '../hooks/useTranslation';
 import useSettingsStore from '../store/useSettingsStore';
-import { getColors, isDarkTheme } from '../theme/colors';
+import { getColors } from '../theme/colors';
 
 const { width } = Dimensions.get('window');
 
 const CelebrationScreen = ({ route, navigation }) => {
-    const { totalSavedSpace = 0, totalDeletedCount = 0, totalKeptCount = 0 } = route.params || {};
+    const { totalSavedSpace = 0, totalDeletedCount = 0, totalKeptCount = 0, sessionId = null } = route.params || {};
     const { theme, updateLifetimeStats, awardBadge } = useSettingsStore();
-    const { t, language } = useTranslation();
+    const { t } = useTranslation();
     const [newBadges, setNewBadges] = React.useState([]);
 
-    const isDark = isDarkTheme(theme);
     const colors = getColors(theme);
 
     const scale = useSharedValue(0);
@@ -32,15 +31,20 @@ const CelebrationScreen = ({ route, navigation }) => {
     const badgeOpacity = useSharedValue(0);
 
     useEffect(() => {
-        // Update stats
-        updateLifetimeStats({
-            savedSpace: totalSavedSpace,
-            deletedCount: totalDeletedCount,
-            keptCount: totalKeptCount,
-        });
+        const settings = useSettingsStore.getState();
 
-        // Small delay for badge checks to ensure lifetime stats are updated
-        setTimeout(() => {
+        // Record the session once, even if this screen is opened again with the same
+        // params (e.g. navigation re-mount). Sessions without an id are always recorded.
+        const alreadyRecorded = Boolean(sessionId) && settings.lastRecordedSessionId === sessionId;
+
+        if (!alreadyRecorded) {
+            updateLifetimeStats({
+                savedSpace: totalSavedSpace,
+                deletedCount: totalDeletedCount,
+                keptCount: totalKeptCount,
+            }, sessionId);
+
+            // The store updates synchronously, so the new totals can be read right away.
             const currentStats = useSettingsStore.getState().lifetimeStats;
             const currentBadges = useSettingsStore.getState().earnedBadges;
             const newlyEarned = [];
@@ -63,20 +67,20 @@ const CelebrationScreen = ({ route, navigation }) => {
             // Action/Streak
             checkBadge('loyal_user', currentStats.streakDays >= 7);
             checkBadge('big_clean', totalDeletedCount > 0);
-            if (totalDeletedCount >= 50) checkBadge('determined_sorter', true);
+            checkBadge('determined_sorter', totalDeletedCount >= 50);
             checkBadge('collector', currentStats.totalKeptCount >= 50);
 
             // Fun
             const hour = new Date().getHours();
-            if (hour >= 0 && hour <= 5) checkBadge('night_owl', true);
-            if (totalDeletedCount === 0) checkBadge('perfect_gallery', true);
+            checkBadge('night_owl', hour >= 0 && hour <= 5);
+            checkBadge('perfect_gallery', totalDeletedCount === 0);
 
             if (newlyEarned.length > 0) {
                 setNewBadges(newlyEarned);
                 badgeScale.value = withSpring(1);
                 badgeOpacity.value = withTiming(1, { duration: 500 });
             }
-        }, 300);
+        }
 
         scale.value = withSpring(1);
         opacity.value = withTiming(1, { duration: 1000 });
@@ -88,6 +92,9 @@ const CelebrationScreen = ({ route, navigation }) => {
             -1,
             true
         );
+        // Intentionally runs once on mount: the session is recorded exactly once (guarded by sessionId)
+        // and the intro animations must not restart if a dependency identity changes.
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
     const animatedCardStyle = useAnimatedStyle(() => ({
@@ -117,7 +124,7 @@ const CelebrationScreen = ({ route, navigation }) => {
         <SafeAreaView style={[styles.container, { backgroundColor: colors.bg }]}>
             <View style={styles.content}>
                 <Animated.View style={[styles.iconContainer, animatedIconStyle]}>
-                    <Text style={styles.emoji}>🎉</Text>
+                    <Text style={styles.emoji} accessibilityElementsHidden importantForAccessibility="no">🎉</Text>
                 </Animated.View>
 
                 {newBadges.length > 0 && (

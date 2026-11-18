@@ -1,3 +1,5 @@
+import { Appearance } from 'react-native';
+
 export const LIGHT_COLORS = {
     bg: '#F5F5F5',
     card: '#FFFFFF',
@@ -98,6 +100,7 @@ const THEMES = {
 };
 
 export const THEME_LIST = [
+    { id: 'system', preview: '#9E9E9E', accent: '#FF5252' },
     { id: 'light', preview: '#F5F5F5', accent: '#FF5252' },
     { id: 'dark', preview: '#121212', accent: '#FF5252' },
     { id: 'ocean', preview: '#0D1B2A', accent: '#00BCD4' },
@@ -106,6 +109,15 @@ export const THEME_LIST = [
     { id: 'lavender', preview: '#F3E5F5', accent: '#9C27B0' },
 ];
 
-export const getColors = (theme) => THEMES[theme] || LIGHT_COLORS;
+// 'system' follows the OS color scheme. Appearance is read at call time, and
+// the settings store mirrors the OS scheme (see App.js) so screens re-render on change.
+export const resolveTheme = (theme) => {
+    if (theme === 'system') {
+        return Appearance.getColorScheme() === 'dark' ? 'dark' : 'light';
+    }
+    return theme;
+};
 
-export const isDarkTheme = (theme) => ['dark', 'ocean', 'forest'].includes(theme);
+export const getColors = (theme) => THEMES[resolveTheme(theme)] || LIGHT_COLORS;
+
+export const isDarkTheme = (theme) => ['dark', 'ocean', 'forest'].includes(resolveTheme(theme));
