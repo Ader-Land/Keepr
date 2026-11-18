@@ -1,147 +1,168 @@
-# Keepr - Premium React Native Source Code Template 🚀
+<div align="center">
 
-Welcome to **Keepr**, a modern, highly optimized, and intuitive mobile application template built with Expo & React Native. Designed to help users regain control over their digital life, Keepr declutters local storage with an engaging "Swipe-to-Action" (Tinder-style) experience.
+# Keepr
 
-It is perfect as a robust starting point for a gallery cleaner, photo organizer, or utility application on both iOS and Android.
+**Swipe left to delete, swipe right to keep.**
+A privacy-first, fully offline gallery cleaner for Android — built with Expo and React Native.
 
-## ✨ Key Features
+[![CI](https://github.com/Ader-Land/Keepr/actions/workflows/ci.yml/badge.svg)](https://github.com/Ader-Land/Keepr/actions/workflows/ci.yml)
+[![License: GPL v3](https://img.shields.io/badge/License-GPL%20v3-blue.svg)](LICENSE)
 
-- **Tinder-Style Swiping:** Review photos and videos effortlessly with smooth, gesture-driven animations powered by `react-native-reanimated`.
-- **Privacy First:** All media scanning and processing are completely local. No external servers or API calls are used for gallery data.
-- **Smart Filtering:** Organize gallery by specific albums, media types (photos/videos), and sizes.
-- **Gamified Experience:** Users earn unique badges and track progress through a structured achievement system.
-- **Extensive i18n Support:** Fully translated into 6 languages (English, Turkish, Spanish, German, French, Portuguese).
-- **Modern Aesthetics:** Sleek UI with completely integrated **Dark and Light Mode** support.
-- **Local Notifications:** Keeps users engaged with smart daily/weekly reminders.
+</div>
 
-## 🛠️ Tech Stack & Dependencies
+Keepr helps you reclaim storage by turning gallery cleanup into a quick, swipe-based game. Photos and videos
+appear one by one: swipe right to keep, swipe left to put them in a review bin, then confirm the deletion in one go.
 
-- **Framework:** [React Native](https://reactnative.dev/) & [Expo SDK 54](https://expo.dev/)
-- **Store / State Management:** [Zustand](https://github.com/pmndrs/zustand)
-- **Gestures & Animations:** `react-native-gesture-handler` & `react-native-reanimated`
-- **Media Handling:** `expo-media-library`, `expo-av`, `expo-video`
-- **Notifications:** `expo-notifications`
-- **Navigation:** `@react-navigation/native` & `@react-navigation/stack`
+## Screenshots
 
----
+<!-- Add screenshots to docs/screenshots and reference them here. -->
+_Screenshots coming soon._
 
-## 🚀 Getting Started
+## Features
 
-Follow these steps to successfully spin up the application on your local machine.
+- **Swipe to decide** – gesture-driven cards powered by `react-native-gesture-handler` and `react-native-reanimated`, with undo.
+- **Review before deleting** – nothing is removed until you confirm the bin; anything can be moved back to "keep".
+- **Keep list** – items you keep are remembered and will not be shown again.
+- **Filters** – by media type (photos / videos), album and sort order (date or file size).
+- **Progress & badges** – statistics, streaks and achievements to keep cleanups fun.
+- **Local reminders** – optional daily or weekly notifications, scheduled on-device.
+- **6 languages** – English, Turkish, Spanish, German, French and Portuguese.
+- **Themes** – light, dark and system-following themes.
+- **Private by design** – no accounts, no analytics, no servers. See [PRIVACY.md](PRIVACY.md).
 
-### Prerequisites
+## Tech stack
 
-- Node.js (v18 or newer recommended)
-- `npm` or `yarn` installed
-- iOS Simulator (macOS only) or Android Emulator installed via Android Studio
-- Expo Go app on your physical device (if testing directly on a phone)
+| Area | Library |
+| --- | --- |
+| Framework | Expo SDK 54, React Native 0.81, React 19 |
+| State | Zustand (+ AsyncStorage persistence) |
+| Navigation | React Navigation (stack) |
+| Gestures / animation | react-native-gesture-handler, react-native-reanimated, react-native-worklets |
+| Media | expo-media-library, expo-video, expo-file-system |
+| Notifications | expo-notifications |
 
-### Installation
+## Getting started
 
-1. **Clone or Extract the Source Code**
-   ```bash
-   cd Keepr
-   ```
+Prerequisites: Node.js 20+ (22 recommended), npm, and an Android emulator or device.
 
-2. **Install Dependencies**
-   ```bash
-   npm install
-   # or
-   yarn install
-   ```
-
-3. **Start the Development Server**
-   ```bash
-   npx expo start
-   ```
-   Press `i` to open in iOS simulator, `a` to open in Android emulator, or scan the QR code using Expo Go on your physical device.
-
----
-
-## 🎨 Customization Guide (White-labeling)
-
-Keepr is built to be easily personalized according to your branding needs. 
-
-### 1. Changing App Name & Package Name
-Open `app.json` in the root folder.
-- Change `"name": "Keepr"` to your brand's name.
-- Change `"slug": "Keepr"` to your designated slug.
-- Under `ios.bundleIdentifier` (if you add it) and `android.package`, replace `"com.keepr.app"` with your unique domain notation (e.g., `"com.yourcompany.appname"`).
-
-### 2. Branding (Icons & Splash Screen)
-Replace the existing images found in the `/assets` folder with your own designs. Ensure identical names and roughly the same dimensions for best compatibility:
-- `icon.png` (App Icon)
-- `adaptive-icon.png` (Android Adaptive Icon)
-- `splash-icon.png` (Splash Screen Image)
-
-### 3. Modifying Color Theme
-All global colors are centralized in `src/theme/colors.js`. You can simply alter the HEX strings inside `LIGHT_COLORS` and `DARK_COLORS` to fit your overall brand guidelines.
-```javascript
-export const LIGHT_COLORS = {
-    primary: '#FF5252', // Change this to your main brand color
-    secondary: '#4CAF50',
-    // ...
-};
+```bash
+git clone https://github.com/Ader-Land/Keepr.git
+cd Keepr
+npm install
+npx expo run:android
 ```
 
-### 4. Language & Localization
-Keepr features built-in translations located at `src/i18n/translations.js`.
-To change the default language from `en` (English) to another language, modify the initial state in `src/store/useSettingsStore.js`:
-```javascript
-language: getLocales()[0].languageCode || 'en', // Change 'en' to your desired code
+Keepr uses native modules (media library, notifications), so use a development build (`expo run:android`) rather
+than Expo Go when testing gallery features. After the first build you can start only the dev server with
+`npx expo start`.
+
+### Useful scripts
+
+| Command | What it does |
+| --- | --- |
+| `npm start` | Start the Metro dev server |
+| `npm run android` | Build and run a debug build on a device / emulator |
+| `npm run lint` | Run ESLint (`eslint-config-expo`) |
+| `npm test` | Run the Jest test suite (`jest-expo`) |
+| `npx expo-doctor` | Check the project configuration and dependency versions |
+
+## Building
+
+### With EAS (cloud)
+
+```bash
+npm install -g eas-cli
+eas login
+eas build --platform android --profile preview      # installable .apk
+eas build --platform android --profile production   # .aab for Google Play
 ```
 
----
+Profiles are defined in [`eas.json`](eas.json).
 
-## 📦 Building for Production
+### Locally (Gradle)
 
-Expo makes it straightforward to compile your source code into standalone `.apk`, `.aab`, or `.ipa` files. We highly recommend using EAS (Expo Application Services).
+Requires JDK 17 and the Android SDK.
 
-1. **Install EAS CLI**
-   ```bash
-   npm install -g eas-cli
-   ```
-2. **Log into Expo**
-   ```bash
-   eas login
-   ```
-3. **Configure the Project**
-   ```bash
-   eas build:configure
-   ```
-4. **Create the Build**
-   - For **Android** App Bundle (.aab - required for Play Store):
-     ```bash
-     eas build --platform android
-     ```
-   - For **iOS** (.ipa):
-     ```bash
-     eas build --platform ios
-     ```
-*(To build a local `.apk` for testing Android directly, you can run `eas build -p android --profile preview` provided you configured a preview profile in `eas.json`)*.
+```bash
+npx expo prebuild --platform android --clean
+cd android
+./gradlew assembleRelease     # APK -> android/app/build/outputs/apk/release/
+./gradlew bundleRelease       # AAB -> android/app/build/outputs/bundle/release/
+```
 
----
+Without a signing configuration the release build is signed with the debug key, which is fine for testing
+but **not** for distribution. Create your own keystore for real releases and never commit it
+(`*.keystore` and `*.jks` are git-ignored).
 
-## 📁 Folder Structure Overview
+### Releases via GitHub Actions
+
+Pushing a tag such as `v1.0.0` triggers [`release.yml`](.github/workflows/release.yml), which builds a release APK
+and attaches it to a GitHub Release. To get a properly signed APK, add these repository secrets
+(*Settings → Secrets and variables → Actions*):
+
+| Secret | Description |
+| --- | --- |
+| `ANDROID_KEYSTORE_BASE64` | Your release keystore, base64-encoded (`base64 -w0 release.keystore`) |
+| `ANDROID_KEYSTORE_PASSWORD` | Keystore password |
+| `ANDROID_KEY_ALIAS` | Key alias |
+| `ANDROID_KEY_PASSWORD` | Key password |
+
+If the secrets are missing, the workflow still runs but publishes an APK signed with the debug key and marks
+the release as a pre-release.
+
+## Permissions
+
+| Permission | Why |
+| --- | --- |
+| `READ_MEDIA_IMAGES`, `READ_MEDIA_VIDEO` (Android 13+) | Show the photos and videos you are reviewing |
+| `READ_MEDIA_VISUAL_USER_SELECTED` | Support Android's "selected photos only" access |
+| `READ_EXTERNAL_STORAGE` (Android ≤ 12L) / `WRITE_EXTERNAL_STORAGE` (Android ≤ 10) | Same purpose on older Android versions; capped with `maxSdkVersion` so they are not requested on newer systems |
+| `POST_NOTIFICATIONS` (Android 13+) | Optional cleanup reminders |
+| `RECEIVE_BOOT_COMPLETED` | Re-schedule reminders after the device restarts (added by `expo-notifications`) |
+| `VIBRATE` | Haptic feedback when swiping (added by `expo-haptics`) |
+| `INTERNET` | Added by the Expo/React Native template (needed by the development server); Keepr itself makes no network requests with your data |
+
+Keepr does **not** request location, microphone, camera or contacts access. The audio, media-location and
+location permissions are explicitly blocked in [`app.json`](app.json).
+
+## Project structure
 
 ```text
-├── App.js                     # Root component & Navigation setup
-├── app.json                   # Expo configuration mappings
-├── /src
-│   ├── /components            # Reusable UI components (SwipeCards, Badges, etc)
-│   ├── /hooks                 # Custom React hooks (useGallery, useTranslation)
-│   ├── /i18n                  # Language dictionaries
-│   ├── /screens               # Application routes/screens
-│   ├── /services              # Hardware/OS interfacing (Notifications)
-│   ├── /store                 # Zustand global context setup
-│   └── /theme                 # Global styling config & Colors
-└── /assets                    # Static image and font assets
+├── App.js                  # Root component and navigation
+├── index.js                # Expo entry point
+├── app.json                # Expo configuration
+├── eas.json                # EAS build profiles
+├── eslint.config.js        # ESLint flat config
+├── __tests__/              # Jest tests
+├── assets/                 # Icons and splash image
+├── plugins/                # Local Expo config plugins
+├── scripts/ci/             # Helper scripts used by the release workflow
+├── .github/                # CI/release workflows, issue and PR templates
+└── src/
+    ├── components/         # Reusable UI (SwipeCard, OnboardingModal, StatsDashboard)
+    ├── hooks/              # useGallery, useTranslation
+    ├── i18n/               # Translation dictionaries
+    ├── screens/            # Deck, Summary, Settings, KeepList, Badges, Celebration
+    ├── services/           # Notification scheduling
+    ├── store/              # Zustand stores (session + persisted settings)
+    ├── theme/              # Colors and theme helpers
+    └── utils/              # Small shared helpers
 ```
 
-## 📄 License & Support
+## Contributing
 
-This source code is licensed under the MIT License unless stated otherwise in your platform purchase agreement. 
+Contributions are welcome — please read [CONTRIBUTING.md](CONTRIBUTING.md) and the
+[Code of Conduct](CODE_OF_CONDUCT.md) first. Report security issues privately as described in
+[SECURITY.md](SECURITY.md).
 
-If you encounter any issues regarding the foundation of the code, feel free to inspect the active documentation at [React Native](https://reactnative.dev/docs/getting-started) and [Expo](https://docs.expo.dev/).
+## License and attribution
 
-*Thank you for purchasing Keepr! Happy Coding!* 🎉
+Keepr is free software released under the **GNU General Public License v3.0 only** ([LICENSE](LICENSE)).
+You may use, study, modify and redistribute it, provided that:
+
+- you keep the copyright notice and the [NOTICE](NOTICE) file, and credit the original author
+  (**Ader-Land**, <https://github.com/Ader-Land/Keepr>);
+- any distributed derivative work is also licensed under the GPL-3.0 and its complete source code is made available;
+- modified versions are clearly marked as modified.
+
+Copyright © 2026 Ader-Land.

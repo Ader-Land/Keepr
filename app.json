@@ -1,11 +1,12 @@
 {
   "expo": {
     "name": "Keepr",
-    "slug": "Keepr",
+    "slug": "keepr",
+    "scheme": "keepr",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
-    "userInterfaceStyle": "light",
+    "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "splash": {
       "image": "./assets/splash-icon.png",
@@ -13,26 +14,31 @@
       "backgroundColor": "#ffffff"
     },
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.keepr.app",
+      "buildNumber": "1"
     },
     "android": {
       "package": "com.keepr.app",
+      "versionCode": 1,
       "permissions": [
-        "ACCESS_MEDIA_LOCATION",
-        "ACCESS_FINE_LOCATION",
-        "ACCESS_COARSE_LOCATION",
-        "READ_EXTERNAL_STORAGE",
-        "WRITE_EXTERNAL_STORAGE",
         "READ_MEDIA_IMAGES",
         "READ_MEDIA_VIDEO",
-        "READ_MEDIA_AUDIO",
-        "POST_NOTIFICATIONS",
-        "RECEIVE_BOOT_COMPLETED",
-        "VIBRATE"
+        "POST_NOTIFICATIONS"
+      ],
+      "blockedPermissions": [
+        "android.permission.READ_MEDIA_AUDIO",
+        "android.permission.ACCESS_MEDIA_LOCATION",
+        "android.permission.ACCESS_FINE_LOCATION",
+        "android.permission.ACCESS_COARSE_LOCATION",
+        "android.permission.RECORD_AUDIO",
+        "android.permission.SYSTEM_ALERT_WINDOW"
       ],
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#ffffff"
+        "backgroundImage": "./assets/adaptive-icon-background.png",
+        "monochromeImage": "./assets/adaptive-icon-monochrome.png",
+        "backgroundColor": "#3A3A85"
       },
       "edgeToEdgeEnabled": true
     },
@@ -40,10 +46,23 @@
       "favicon": "./assets/favicon.png"
     },
     "plugins": [
+      "./plugins/withScopedStoragePermissions",
+      [
+        "expo-media-library",
+        {
+          "photosPermission": "Keepr needs access to your photos and videos so you can review and delete them. Everything stays on your device.",
+          "savePhotosPermission": "Keepr does not save photos to your library.",
+          "isAccessMediaLocationEnabled": false,
+          "granularPermissions": [
+            "photo",
+            "video"
+          ]
+        }
+      ],
       [
         "expo-notifications",
         {
-          "icon": "./assets/icon.png",
+          "icon": "./assets/adaptive-icon-monochrome.png",
           "color": "#FF5252"
         }
       ],
@@ -51,13 +70,17 @@
         "expo-build-properties",
         {
           "android": {
-            "compileSdkVersion": 35,
-            "targetSdkVersion": 34,
-            "buildToolsVersion": "35.0.0"
+            "compileSdkVersion": 36,
+            "targetSdkVersion": 36,
+            "buildToolsVersion": "36.0.0"
           }
         }
       ],
       "expo-localization"
-    ]
+    ],
+    "extra": {
+      "repository": "https://github.com/Ader-Land/Keepr",
+      "license": "GPL-3.0-only"
+    }
   }
 }

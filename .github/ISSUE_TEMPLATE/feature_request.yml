@@ -1,0 +1,27 @@
+name: Feature request
+description: Suggest an idea for Keepr
+labels: [enhancement]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem or motivation
+      description: What are you trying to do, and what gets in the way?
+    validations:
+      required: true
+  - type: textarea
+    id: solution
+    attributes:
+      label: Proposed solution
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+  - type: checkboxes
+    id: privacy
+    attributes:
+      label: Privacy
+      options:
+        - label: This feature does not require network access or extra permissions (or I explained why it does).

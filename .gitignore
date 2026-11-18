@@ -39,3 +39,20 @@ yarn-error.*
 # generated native folders
 /ios
 /android
+
+# editor / assistant local settings
+.claude/
+.vscode/
+.idea/
+
+# signing material & secrets
+*.keystore
+*.jks
+keystore.properties
+google-services.json
+android/app/release/
+.env
+.env.*
+
+# test coverage
+coverage/
